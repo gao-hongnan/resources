@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from pixiu.core.enums import HealthCheckStatus
+from ..core.enums import HealthCheckStatus
 
 
 class HealthCheckResult(BaseModel):

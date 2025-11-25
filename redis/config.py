@@ -15,7 +15,7 @@ class RedisConnectionSettings(BaseModel):
     port: int = Field(default=6379, ge=1, le=65535, description="Redis port")
     db: int = Field(default=0, ge=0, le=15, description="Redis database number")
     username: str | None = Field(default=None, description="Redis username for ACL (Redis 6+)")
-    password: SecretStr = Field(..., description="Redis password for authentication")
+    password: SecretStr | None = Field(default=None, description="Redis password for authentication")
 
 
 class RedisSSLSettings(BaseModel):
@@ -24,7 +24,7 @@ class RedisSSLSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=False, description="Enable SSL/TLS connections")
-    ca_certs: str | None = Field(default=None, description="Path to CA certificate for SSL verification")
+    ssl_ca_certs: str | None = Field(default=None, description="Path to CA certificate for SSL verification")
 
 
 class RedisPoolSettings(BaseModel):
@@ -71,6 +71,25 @@ class RedisDriverSettings(BaseModel):
     )
 
 
+class RedisClusterSettings(BaseModel):
+    """Redis Cluster settings (AWS Redis OSS cluster mode or self-hosted)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable cluster mode (uses RedisCluster client)",
+    )
+    require_full_coverage: bool = Field(
+        default=False,
+        description="Require all hash slots to be covered (set False during scaling)",
+    )
+    read_from_replicas: bool = Field(
+        default=False,
+        description="Distribute read commands across replicas for better read throughput",
+    )
+
+
 class RedisConfig(BaseModel):
     """Main Redis configuration."""
 
@@ -80,6 +99,7 @@ class RedisConfig(BaseModel):
     ssl: RedisSSLSettings
     pool: RedisPoolSettings
     driver: RedisDriverSettings
+    cluster: RedisClusterSettings = Field(default_factory=RedisClusterSettings)
 
     @property
     def url(self) -> str:
@@ -93,9 +113,14 @@ class RedisConfig(BaseModel):
             auth = f":{pw}@"
 
         protocol = "rediss" if self.ssl.enabled else "redis"
-        return f"{protocol}://{auth}{self.connection.host}:{self.connection.port}/{self.connection.db}"
+        base_url = f"{protocol}://{auth}{self.connection.host}:{self.connection.port}"
 
-    def get_connection_pool_kwargs(self, ssl_context: ssl_module.SSLContext | None = None) -> dict[str, Any]:
+        # Cluster mode doesn't support database selection (always db 0)
+        if self.cluster.enabled:
+            return base_url
+        return f"{base_url}/{self.connection.db}"
+
+    def get_connection_pool_kwargs(self) -> dict[str, Any]:
         """Get kwargs for redis.asyncio.ConnectionPool.
 
         Uses explicit ConnectionPool (not Redis internal pool) for:
@@ -103,22 +128,53 @@ class RedisConfig(BaseModel):
         - Centralized config (all settings in RedisConfig)
         - Observable resources (pool size, health checks)
 
-        Parameters
-        ----------
-        ssl_context
-            Optional SSL context for TLS connections. Pass None to disable SSL.
-
         Returns
         -------
         dict[str, Any]
             Kwargs ready for ConnectionPool(**kwargs).
         """
-        password = self.connection.password.get_secret_value()
+        password = self.connection.password.get_secret_value() if self.connection.password else None
 
-        return {
+        kwargs: dict[str, Any] = {
             **self.connection.model_dump(exclude={"password"}),
             "password": password,
             **self.pool.model_dump(),
             **self.driver.model_dump(),
-            "ssl": ssl_context,
         }
+
+        if self.ssl.enabled:
+            kwargs["ssl"] = self._build_ssl_context()
+
+        return kwargs
+
+    def get_cluster_kwargs(self) -> dict[str, Any]:
+        """Get kwargs for redis.asyncio.cluster.RedisCluster.
+
+        RedisCluster manages its own connection pool internally, so pool settings
+        are not included. Database selection (db) is not supported in cluster mode.
+
+        Returns
+        -------
+        dict[str, Any]
+            Kwargs ready for RedisCluster(**kwargs).
+        """
+        password = self.connection.password.get_secret_value() if self.connection.password else None
+
+        kwargs: dict[str, Any] = {
+            **self.connection.model_dump(exclude={"password", "db"}),
+            "password": password,
+            **self.cluster.model_dump(exclude={"enabled"}),
+            **self.driver.model_dump(exclude={"retry_on_timeout"}),
+        }
+
+        if self.ssl.enabled:
+            kwargs["ssl"] = self._build_ssl_context()
+
+        return kwargs
+
+    def _build_ssl_context(self) -> ssl_module.SSLContext:
+        """Build SSL context from ssl settings."""
+        context = ssl_module.create_default_context()
+        if self.ssl.ssl_ca_certs:
+            context.load_verify_locations(self.ssl.ssl_ca_certs)
+        return context
