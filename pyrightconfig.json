@@ -1,0 +1,55 @@
+{
+    "pythonVersion": "3.13",
+    "typeCheckingMode": "strict",
+    "reportMissingTypeStubs": false,
+    "reportUnnecessaryIsInstance": false,
+    "reportUnnecessaryTypeIgnoreComment": false,
+    "reportUnnecessaryCast": false,
+    "reportInvalidTypeVarUse": false,
+    "reportMissingModuleSource": false,
+    "reportUnknownParameterType": false,
+    "reportUnknownArgumentType": false,
+    "reportUnknownVariableType": false,
+    "reportUnknownMemberType": false,
+    "reportGeneralTypeIssues": true,
+    "reportOptionalSubscript": false,
+    "reportOptionalMemberAccess": false,
+    "reportOptionalCall": false,
+    "reportOptionalIterable": false,
+    "reportOptionalContextManager": false,
+    "reportOptionalOperand": false,
+    "reportPrivateUsage": false,
+    "include": [
+      "pixiu",
+      "tests"
+    ],
+    "exclude": [
+      ".venv",
+      "venv",
+      "build",
+      "dist",
+      "data",
+      "logs",
+      "outputs",
+      "checkpoints",
+      "models",
+      "**/__pycache__",
+      "**/*.pyc",
+      "**/.pytest_cache",
+      "**/.mypy_cache",
+      "**/.ruff_cache",
+      "**/node_modules"
+    ],
+    "venvPath": ".",
+    "venv": ".venv",
+    "executionEnvironments": [
+      {
+        "root": "tests",
+        "reportUnusedFunction": false,
+        "reportPrivateImportUsage": false,
+        "reportUnusedImport": false,
+        "reportUnusedVariable": false
+      }
+    ],
+    "extraPaths": []
+}

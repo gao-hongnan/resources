@@ -1,0 +1,71 @@
+# ===================================================================================
+# Docker Compose Configuration - Local Development
+# ===================================================================================
+#
+# PURPOSE:
+#   Simplified docker-compose for local development and testing.
+#   Provides postgres and redis services for local code testing.
+#
+# USAGE:
+#   Start services: docker-compose up -d
+#   Stop services:  docker-compose down
+#   View logs:      docker-compose logs -f
+#
+#   Your local code can connect to:
+#   - PostgreSQL: localhost:5432
+#   - Redis:      localhost:6379
+#
+# ===================================================================================
+
+x-app-env: &app-env
+  env_file:
+    - environments/environment/.env.${ENV:-local}
+
+services:
+  postgres:
+    <<: *app-env
+    image: postgres:${INFRA__POSTGRES__VERSION:-16}
+    container_name: ${INFRA__POSTGRES__CONTAINER_NAME:-pixiu-postgres}
+    environment:
+      POSTGRES_DB: ${DATABASE__NAME:-pixiu}
+      POSTGRES_USER: ${DATABASE__USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE__PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=${INFRA__POSTGRES__ENCODING:-UTF8}"
+    ports:
+      - "${INFRA__POSTGRES__EXTERNAL_PORT:-5432}:${INFRA__POSTGRES__INTERNAL_PORT:-5432}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${DATABASE__USER:-postgres} -d ${DATABASE__NAME:-pixiu}"]
+      interval: ${INFRA__POSTGRES__HEALTHCHECK__INTERVAL:-10s}
+      timeout: ${INFRA__POSTGRES__HEALTHCHECK__TIMEOUT:-5s}
+      retries: ${INFRA__POSTGRES__HEALTHCHECK__RETRIES:-5}
+    restart: unless-stopped
+
+  redis:
+    <<: *app-env
+    image: redis:${INFRA__REDIS__VERSION:-7-alpine}
+    container_name: ${INFRA__REDIS__CONTAINER_NAME:-pixiu-redis}
+    ports:
+      - "${INFRA__REDIS__EXTERNAL_PORT:-6379}:${INFRA__REDIS__INTERNAL_PORT:-6379}"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: ${INFRA__POSTGRES__VOLUME_NAME:-pixiu_postgres_data}
+  redis_data:
+    name: ${INFRA__REDIS__VOLUME_NAME:-pixiu_redis_data}
+
+networks:
+  default:
+    name: ${INFRA__NETWORK__NAME:-pixiu_network}
+    driver: ${INFRA__NETWORK__DRIVER:-bridge}
