@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 class TestRedisStandaloneBasicOperations:
     """Test basic Redis string operations: GET, SET, DELETE."""
 
+    @pytest.mark.asyncio
     async def test_set_get_delete_operations(
         self, redis_client: BaseRedisClient
     ) -> None:
@@ -73,6 +74,7 @@ class TestRedisStandaloneBasicOperations:
 class TestRedisStandaloneHealthCheck:
     """Test Redis health check mechanism critical for production monitoring."""
 
+    @pytest.mark.asyncio
     async def test_health_check_returns_healthy_when_connected(
         self, redis_client: BaseRedisClient
     ) -> None:
@@ -89,6 +91,7 @@ class TestRedisStandaloneHealthCheck:
             "Health check should return HEALTHY for an initialized and connected client"
         )
 
+    @pytest.mark.asyncio
     async def test_health_check_returns_initializing_when_not_initialized(
         self, redis_container: RedisContainerProtocol
     ) -> None:
@@ -129,6 +132,7 @@ class TestRedisStandaloneHealthCheck:
 class TestRedisStandaloneLifecycle:
     """Test Redis client lifecycle: initialization, usage, and cleanup."""
 
+    @pytest.mark.asyncio
     async def test_client_lifecycle_initialize_use_close(
         self, redis_container: RedisContainerProtocol
     ) -> None:
