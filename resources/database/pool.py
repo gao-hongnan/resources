@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 import asyncpg
 from asyncpg import Pool, Record
 
-from ..logger import get_logger
+from ...core.enums import HealthCheckStatus
+from ...logger import get_logger
 from .config import DatabaseConfig
-from .models import HealthCheckResult, HealthCheckStatus
+from .models import HealthCheckResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterable, Sequence
