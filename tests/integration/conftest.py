@@ -18,8 +18,8 @@ from pydantic import SecretStr
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
-    from pixiu.database import AsyncConnectionPool
-    from pixiu.redis.base import BaseRedisClient
+    from pixiu.infrastructure.database.pool import AsyncConnectionPool
+    from pixiu.infrastructure.redis import BaseRedisClient
 
 
 class PostgresContainerProtocol(Protocol):
@@ -41,6 +41,7 @@ def _check_docker_available() -> bool:
 
     Returns:
         True if Docker daemon is accessible, False otherwise.
+
     """
     try:
         from pathlib import Path
@@ -81,9 +82,11 @@ def _create_postgres_container() -> PostgresContainerProtocol:
 
     Raises:
         ImportError: If testcontainers is not installed.
+
     """
     from typing import cast
 
+    from testcontainers.core.wait_strategies import LogMessageWaitStrategy  # type: ignore[import-untyped]
     from testcontainers.postgres import PostgresContainer  # type: ignore[import-untyped]
 
     container = PostgresContainer(
@@ -91,8 +94,9 @@ def _create_postgres_container() -> PostgresContainerProtocol:
         username="test_user",
         password="test_password",
         dbname="test_db",
-    )
-    return cast(PostgresContainerProtocol, container)
+    ).waiting_for(LogMessageWaitStrategy("database system is ready to accept connections"))
+
+    return cast("PostgresContainerProtocol", container)
 
 
 @pytest.fixture(scope="session")
@@ -109,6 +113,7 @@ def postgres_container() -> Iterator[PostgresContainerProtocol]:
 
     Yields:
         Running PostgreSQL container instance.
+
     """
     _configure_docker_environment()
 
@@ -163,9 +168,15 @@ async def connection_pool(postgres_container: PostgresContainerProtocol) -> Asyn
 
     Yields:
         Initialized connection pool instance.
+
     """
-    from pixiu.database import AsyncConnectionPool, DatabaseConfig, DatabaseConnectionSettings, PoolSettings
-    from pixiu.database.config import AsyncpgSettings
+    from pixiu.infrastructure.database.config import (
+        AsyncpgSettings,
+        DatabaseConfig,
+        DatabaseConnectionSettings,
+        PoolSettings,
+    )
+    from pixiu.infrastructure.database.pool import AsyncConnectionPool
 
     exposed_port = postgres_container.get_exposed_port(5432)
     host = postgres_container.get_container_host_ip()
@@ -209,6 +220,7 @@ async def _initialize_test_schema(pool: AsyncConnectionPool) -> None:
 
     Args:
         pool: Initialized connection pool.
+
     """
     async with pool.aacquire() as conn:
         await conn.execute(
@@ -260,13 +272,19 @@ def _create_redis_container() -> RedisContainerProtocol:
 
     Raises:
         ImportError: If testcontainers is not installed.
+
     """
     from typing import cast
 
-    from testcontainers.redis import RedisContainer  # type: ignore[import-untyped]
+    from testcontainers.core.container import DockerContainer  # type: ignore[import-untyped]
+    from testcontainers.core.wait_strategies import LogMessageWaitStrategy  # type: ignore[import-untyped]
 
-    container = RedisContainer("redis:7-alpine")
-    return cast(RedisContainerProtocol, container)
+    container = (
+        DockerContainer("redis:7-alpine")
+        .with_exposed_ports(6379)
+        .waiting_for(LogMessageWaitStrategy("Ready to accept connections"))
+    )
+    return cast("RedisContainerProtocol", container)
 
 
 @pytest.fixture(scope="session")
@@ -283,6 +301,7 @@ def redis_container() -> Iterator[RedisContainerProtocol]:
 
     Yields:
         Running Redis container instance.
+
     """
     _configure_docker_environment()
 
@@ -313,8 +332,9 @@ async def redis_client(redis_container: RedisContainerProtocol) -> AsyncIterator
 
     Yields:
         Initialized Redis client instance.
+
     """
-    from pixiu.redis import (
+    from pixiu.infrastructure.redis import (
         RedisConfig,
         RedisConnectionSettings,
         RedisDriverSettings,

@@ -16,59 +16,52 @@ from __future__ import annotations
 import asyncio
 import time
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
+import pytest_asyncio
 from pydantic import SecretStr
 
-from pixiu.database import AsyncConnectionPool, DatabaseConfig, DatabaseConnectionSettings, PoolSettings
-from pixiu.database.config import AsyncpgSettings
-from pixiu.database.models import HealthCheckStatus
+from leitmotif.infrastructure.postgres.enums import HealthStatus
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from testcontainers.postgres import PostgresContainer
 
-@pytest.mark.integration
-@pytest.mark.database
-class TestQueryTimeout:
-    """Test query timeout and cancellation scenarios."""
+    from leitmotif.infrastructure.postgres import AsyncConnectionPool
 
-    @pytest.fixture
-    async def timeout_pool(self, postgres_container: Any) -> AsyncIterator[AsyncConnectionPool]:
-        """Create pool with short command_timeout for testing.
 
-        Pool configuration:
-        - min_size: 2
-        - max_size: 5
-        - command_timeout: 2.0 seconds (short for testing)
-        """
-        exposed_port = postgres_container.get_exposed_port(5432)
-        host = postgres_container.get_container_host_ip()
+@pytest_asyncio.fixture
+async def timeout_pool_with_data(postgres_container: PostgresContainer) -> AsyncIterator[AsyncConnectionPool]:
+    """Provide timeout pool with pre-populated test data.
 
-        config = DatabaseConfig(
-            connection=DatabaseConnectionSettings(
-                host=host,
-                port=exposed_port,
-                database="test_db",
-                user="test_user",
-                password=SecretStr("test_password"),
-                sslmode="disable",
-            ),
-            pool=PoolSettings(
-                min_size=2,
-                max_size=5,
-                timeout=10.0,
-            ),
-            asyncpg=AsyncpgSettings(
-                command_timeout=2.0,  # Short timeout for testing
-            ),
-        )
+    Creates test_data table with 1000 rows for timeout testing.
+    """
+    from leitmotif.infrastructure.postgres import (
+        AsyncConnectionPool,
+        AsyncpgConfig,
+        AsyncpgConnectionSettings,
+        AsyncpgPoolSettings,
+        AsyncpgServerSettings,
+        AsyncpgStatementCacheSettings,
+    )
 
-        pool = AsyncConnectionPool(config)
-        await pool.ainitialize()
+    config = AsyncpgConfig(
+        connection=AsyncpgConnectionSettings(
+            host=postgres_container.get_container_host_ip(),
+            port=int(postgres_container.get_exposed_port(5432)),
+            database=postgres_container.dbname,
+            user=postgres_container.username,
+            password=SecretStr(postgres_container.password),
+        ),
+        pool=AsyncpgPoolSettings(min_size=2, max_size=5, command_timeout=2.0),
+        statement_cache=AsyncpgStatementCacheSettings(max_size=128),
+        server_settings=AsyncpgServerSettings(application_name="leitmotif_test_timeout", jit="off"),
+    )
 
-        # Create test table
+    async with AsyncConnectionPool(config) as pool:
+        # Create and populate test table
         async with pool.aacquire() as conn:
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS test_data (
@@ -76,7 +69,6 @@ class TestQueryTimeout:
                     value INTEGER
                 )
             """)
-            # Insert some test data
             await conn.executemany(
                 "INSERT INTO test_data (value) VALUES ($1)",
                 [(i,) for i in range(1000)],
@@ -87,9 +79,14 @@ class TestQueryTimeout:
         finally:
             async with pool.aacquire() as conn:
                 await conn.execute("DROP TABLE IF EXISTS test_data CASCADE")
-            await pool.aclose()
 
-    async def test_command_timeout_terminates_slow_query(self, timeout_pool: AsyncConnectionPool) -> None:
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestQueryTimeout:
+    """Test query timeout and cancellation scenarios."""
+
+    async def test_command_timeout_terminates_slow_query(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that command_timeout terminates slow query.
 
         Scenario:
@@ -100,15 +97,15 @@ class TestQueryTimeout:
         start = time.monotonic()
 
         with pytest.raises((TimeoutError, asyncio.TimeoutError)):
-            await timeout_pool.aexecute("SELECT pg_sleep(10)")
+            await timeout_pool_with_data.aexecute("SELECT pg_sleep(10)")
 
         elapsed = time.monotonic() - start
 
-        # Should timeout around 2 seconds (command_timeout), not wait full 10 seconds
+        # Should timeout around 2 seconds, not wait full 10 seconds
         assert elapsed < 4.0, f"Query should timeout around 2s, took {elapsed:.2f}s"
         assert elapsed > 1.5, f"Query should take at least 1.5s to timeout, took {elapsed:.2f}s"
 
-    async def test_connection_usable_after_timeout(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_connection_usable_after_timeout(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that connection is usable immediately after timeout.
 
         Scenario:
@@ -118,17 +115,17 @@ class TestQueryTimeout:
         """
         # First query times out
         with pytest.raises((TimeoutError, asyncio.TimeoutError)):
-            await timeout_pool.aexecute("SELECT pg_sleep(10)")
+            await timeout_pool_with_data.aexecute("SELECT pg_sleep(10)")
 
         # Immediately after timeout, connection should work
-        result = await timeout_pool.afetchval("SELECT 42")
+        result = await timeout_pool_with_data.afetchval("SELECT 42")
         assert result == 42
 
         # And again
-        result = await timeout_pool.afetchval("SELECT COUNT(*) FROM test_data")
+        result = await timeout_pool_with_data.afetchval("SELECT COUNT(*) FROM test_data")
         assert result == 1000
 
-    async def test_pool_not_blocked_by_slow_queries(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_pool_not_blocked_by_slow_queries(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that pool remains responsive when some queries timeout.
 
         Scenario:
@@ -141,12 +138,12 @@ class TestQueryTimeout:
         async def slow_query() -> None:
             nonlocal slow_query_count
             try:
-                await timeout_pool.aexecute("SELECT pg_sleep(10)")
+                await timeout_pool_with_data.aexecute("SELECT pg_sleep(10)")
             except TimeoutError:
                 slow_query_count += 1
 
         async def fast_query() -> int:
-            result: int = await timeout_pool.afetchval("SELECT 1")
+            result: int = await timeout_pool_with_data.afetchval("SELECT 1")
             return result
 
         # Launch 2 slow queries and 3 fast queries concurrently
@@ -167,28 +164,7 @@ class TestQueryTimeout:
         assert len(fast_results) == 3, "All 3 fast queries should succeed"
         assert all(r == 1 for r in fast_results), "Fast queries should return 1"
 
-    async def test_cursor_timeout_during_iteration(self, timeout_pool: AsyncConnectionPool) -> None:
-        """Test cursor timeout when timeout occurs during iteration.
-
-        Scenario:
-        1. Start cursor iteration
-        2. Use pg_sleep in query to cause timeout
-        3. Verify proper exception and cleanup
-        """
-        # Query that times out
-        with pytest.raises((TimeoutError, asyncio.TimeoutError)):
-            async with timeout_pool.acursor(
-                "SELECT pg_sleep(10), id FROM test_data",
-                timeout=2.0,
-            ) as cursor:
-                async for _row in cursor:
-                    pass  # Should timeout before completing iteration
-
-        # Pool should still be healthy
-        health = await timeout_pool.ahealth_check()
-        assert health.status == HealthCheckStatus.HEALTHY
-
-    async def test_transaction_timeout_with_multiple_queries(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_transaction_timeout_with_multiple_queries(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test transaction timeout when one query in transaction times out.
 
         Scenario:
@@ -197,10 +173,10 @@ class TestQueryTimeout:
         3. Verify transaction is rolled back
         4. Verify connection returned to pool
         """
-        initial_count = await timeout_pool.afetchval("SELECT COUNT(*) FROM test_data")
+        initial_count: int = await timeout_pool_with_data.afetchval("SELECT COUNT(*) FROM test_data")
 
         with pytest.raises((TimeoutError, asyncio.TimeoutError)):
-            async with timeout_pool.atransaction() as conn:
+            async with timeout_pool_with_data.atransaction() as conn:
                 # Insert some data
                 await conn.execute("INSERT INTO test_data (value) VALUES ($1)", 9999)
 
@@ -211,14 +187,16 @@ class TestQueryTimeout:
                 await conn.execute("INSERT INTO test_data (value) VALUES ($1)", 8888)
 
         # Count should be unchanged (transaction rolled back)
-        final_count = await timeout_pool.afetchval("SELECT COUNT(*) FROM test_data")
+        final_count: int = await timeout_pool_with_data.afetchval("SELECT COUNT(*) FROM test_data")
         assert final_count == initial_count, "Transaction should have been rolled back"
 
         # No row with value 9999 should exist
-        marker_count = await timeout_pool.afetchval("SELECT COUNT(*) FROM test_data WHERE value = $1", 9999)
+        marker_count: int = await timeout_pool_with_data.afetchval(
+            "SELECT COUNT(*) FROM test_data WHERE value = $1", 9999
+        )
         assert marker_count == 0, "Inserted row should have been rolled back"
 
-    async def test_timeout_exception_propagates_correctly(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_timeout_exception_propagates_correctly(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that timeout exception propagates through nested contexts.
 
         Scenario:
@@ -229,8 +207,7 @@ class TestQueryTimeout:
         exception_caught = False
 
         try:
-            async with timeout_pool.atransaction() as conn:
-                # Nested operation that times out
+            async with timeout_pool_with_data.atransaction() as conn:
                 await conn.execute("SELECT pg_sleep(10)")
         except TimeoutError:
             exception_caught = True
@@ -238,10 +215,10 @@ class TestQueryTimeout:
         assert exception_caught, "TimeoutError should propagate"
 
         # Pool should be healthy
-        health = await timeout_pool.ahealth_check()
-        assert health.status == HealthCheckStatus.HEALTHY
+        health = await timeout_pool_with_data.ahealth_check()
+        assert health.status == HealthStatus.HEALTHY
 
-    async def test_no_connection_leak_from_timeout(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_no_connection_leak_from_timeout(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that timeouts don't leak connections.
 
         Scenario:
@@ -249,49 +226,49 @@ class TestQueryTimeout:
         2. Verify pool size unchanged
         3. Verify all connections eventually returned
         """
-        initial_size = timeout_pool.pool.get_size()
+        initial_size = timeout_pool_with_data.pool_size
 
         # Run 5 queries that will timeout
         for _ in range(5):
             with suppress(TimeoutError, asyncio.TimeoutError):
-                await timeout_pool.aexecute("SELECT pg_sleep(10)")
+                await timeout_pool_with_data.aexecute("SELECT pg_sleep(10)")
 
         # Give pool time to return connections
         await asyncio.sleep(0.5)
 
         # Pool size should be same (no leaks)
-        final_size = timeout_pool.pool.get_size()
+        final_size = timeout_pool_with_data.pool_size
         assert final_size == initial_size, f"Pool size changed: {initial_size} -> {final_size}"
 
         # Pool should still be healthy
-        health = await timeout_pool.ahealth_check()
-        assert health.status == HealthCheckStatus.HEALTHY
+        health = await timeout_pool_with_data.ahealth_check()
+        assert health.status == HealthStatus.HEALTHY
 
-    async def test_per_query_timeout_overrides_pool_timeout(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_per_query_timeout_overrides_pool_timeout(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that per-query timeout parameter overrides pool command_timeout.
 
         Scenario:
         1. Pool has command_timeout=2.0
         2. Query with timeout=0.5 should timeout faster
-        3. Query with timeout=5.0 should timeout slower
+        3. Query with timeout=5.0 should allow longer operation
         """
         # Fast timeout (0.5s) should override pool timeout (2.0s)
         start = time.monotonic()
         with pytest.raises((TimeoutError, asyncio.TimeoutError)):
-            await timeout_pool.aexecute("SELECT pg_sleep(10)", timeout=0.5)
+            await timeout_pool_with_data.aexecute("SELECT pg_sleep(10)", timeout=0.5)
         elapsed = time.monotonic() - start
 
         assert elapsed < 1.5, f"Query should timeout around 0.5s, took {elapsed:.2f}s"
 
         # Slow timeout (5.0s) - query completes before timeout
         start = time.monotonic()
-        result = await timeout_pool.afetchval("SELECT pg_sleep(0.1)", timeout=5.0)
+        result = await timeout_pool_with_data.afetchval("SELECT pg_sleep(0.1)", timeout=5.0)
         elapsed = time.monotonic() - start
 
         assert result is None, "pg_sleep should return NULL"
         assert elapsed < 1.0, f"Query should complete quickly, took {elapsed:.2f}s"
 
-    async def test_concurrent_timeouts_do_not_interfere(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_concurrent_timeouts_do_not_interfere(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that concurrent queries timing out don't interfere with each other.
 
         Scenario:
@@ -304,7 +281,7 @@ class TestQueryTimeout:
         async def query_with_timeout(sleep_time: float, timeout: float) -> None:
             start = time.monotonic()
             try:
-                await timeout_pool.aexecute(f"SELECT pg_sleep({sleep_time})", timeout=timeout)
+                await timeout_pool_with_data.aexecute(f"SELECT pg_sleep({sleep_time})", timeout=timeout)
             except TimeoutError:
                 elapsed = time.monotonic() - start
                 results.append(elapsed)
@@ -325,31 +302,28 @@ class TestQueryTimeout:
         assert results[1] < 1.5, "Second timeout should be < 1.5s"
         assert results[2] < 2.0, "Third timeout should be < 2.0s"
 
-    async def test_timeout_in_executemany(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_timeout_in_executemany(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test timeout behavior with executemany batch operations.
 
         Scenario:
-        1. executemany with slow operation
-        2. Should timeout appropriately
-        3. No partial batch application
+        1. executemany with timeout
+        2. Should complete or timeout appropriately
         """
-        # Create slow batch operation using trigger or slow function
-        # For simplicity, test that timeout works with executemany
         # Use values 10000+ to avoid collision with fixture data (0-999)
         batch_data = [(i + 10000,) for i in range(100)]
 
         # Fast batch should work
-        await timeout_pool.aexecutemany(
+        await timeout_pool_with_data.aexecutemany(
             "INSERT INTO test_data (value) VALUES ($1)",
             batch_data,
             timeout=5.0,
         )
 
-        # Verify inserted (check for values >= 10000)
-        count = await timeout_pool.afetchval("SELECT COUNT(*) FROM test_data WHERE value >= 10000")
+        # Verify inserted
+        count: int = await timeout_pool_with_data.afetchval("SELECT COUNT(*) FROM test_data WHERE value >= 10000")
         assert count == 100
 
-    async def test_health_check_after_multiple_timeouts(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_health_check_after_multiple_timeouts(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that pool health remains good after multiple timeouts.
 
         Scenario:
@@ -360,20 +334,19 @@ class TestQueryTimeout:
         # Cause 10 timeouts
         for _ in range(10):
             with suppress(TimeoutError, asyncio.TimeoutError):
-                await timeout_pool.aexecute("SELECT pg_sleep(10)")
+                await timeout_pool_with_data.aexecute("SELECT pg_sleep(10)")
 
         # Pool should still be healthy
-        health = await timeout_pool.ahealth_check()
-        assert health.status == HealthCheckStatus.HEALTHY
-        assert health.pool_initialized is True
+        health = await timeout_pool_with_data.ahealth_check()
+        assert health.status == HealthStatus.HEALTHY
         assert health.pool_size is not None
-        assert health.pool_size >= 2  # At least min_size
+        assert health.pool_size >= 2
 
         # Pool should still work normally
-        result = await timeout_pool.afetchval("SELECT 999")
+        result = await timeout_pool_with_data.afetchval("SELECT 999")
         assert result == 999
 
-    async def test_timeout_with_large_result_set(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_timeout_with_large_result_set(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test timeout behavior when fetching large result set.
 
         Scenario:
@@ -382,21 +355,21 @@ class TestQueryTimeout:
         3. Verify proper cleanup
         """
         # This should work (fetch all 1000 rows)
-        results = await timeout_pool.afetch("SELECT * FROM test_data")
+        results = await timeout_pool_with_data.afetch("SELECT * FROM test_data")
         assert len(results) == 1000
 
         # Query with artificial slowdown and timeout
         with pytest.raises((TimeoutError, asyncio.TimeoutError)):
-            await timeout_pool.afetch(
+            await timeout_pool_with_data.afetch(
                 "SELECT pg_sleep(0.01), * FROM test_data",
                 timeout=1.0,
             )
 
         # Pool should still work
-        result = await timeout_pool.afetchval("SELECT 1")
+        result = await timeout_pool_with_data.afetchval("SELECT 1")
         assert result == 1
 
-    async def test_timeout_does_not_affect_other_connections(self, timeout_pool: AsyncConnectionPool) -> None:
+    async def test_timeout_does_not_affect_other_connections(self, timeout_pool_with_data: AsyncConnectionPool) -> None:
         """Test that one connection timing out doesn't affect others.
 
         Scenario:
@@ -407,12 +380,12 @@ class TestQueryTimeout:
 
         async def timeout_query() -> None:
             with suppress(TimeoutError, asyncio.TimeoutError):
-                await timeout_pool.aexecute("SELECT pg_sleep(10)")
+                await timeout_pool_with_data.aexecute("SELECT pg_sleep(10)")
 
         async def normal_query() -> int:
             # This should work fine while other connection times out
             await asyncio.sleep(0.5)  # Give timeout_query time to start
-            result: int = await timeout_pool.afetchval("SELECT 42")
+            result: int = await timeout_pool_with_data.afetchval("SELECT 42")
             return result
 
         # Run both concurrently

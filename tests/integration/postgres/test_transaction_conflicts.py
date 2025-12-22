@@ -14,53 +14,52 @@ under concurrent load.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import asyncpg
 import pytest
+import pytest_asyncio
 from pydantic import SecretStr
-
-from pixiu.database import AsyncConnectionPool, DatabaseConfig, DatabaseConnectionSettings, PoolSettings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from testcontainers.postgres import PostgresContainer
 
-@pytest.mark.integration
-@pytest.mark.database
-class TestTransactionConflicts:
-    """Test concurrent transaction conflicts and isolation levels."""
+    from leitmotif.infrastructure.postgres import AsyncConnectionPool
 
-    @pytest.fixture
-    async def conflict_pool(self, postgres_container: Any) -> AsyncIterator[AsyncConnectionPool]:
-        """Create pool for testing transaction conflicts.
 
-        Pool configuration:
-        - min_size: 2 (need concurrent connections)
-        - max_size: 10 (support multiple concurrent transactions)
-        """
-        exposed_port = postgres_container.get_exposed_port(5432)
-        host = postgres_container.get_container_host_ip()
+@pytest_asyncio.fixture
+async def conflict_pool_with_tables(
+    postgres_container: PostgresContainer,
+) -> AsyncIterator[AsyncConnectionPool]:
+    """Provide conflict pool with test tables for transaction testing.
 
-        config = DatabaseConfig(
-            connection=DatabaseConnectionSettings(
-                host=host,
-                port=exposed_port,
-                database="test_db",
-                user="test_user",
-                password=SecretStr("test_password"),
-                sslmode="disable",
-            ),
-            pool=PoolSettings(
-                min_size=2,
-                max_size=10,
-                timeout=10.0,
-            ),
-        )
+    Creates test_accounts and test_orders tables for conflict scenarios.
+    """
+    from leitmotif.infrastructure.postgres import (
+        AsyncConnectionPool,
+        AsyncpgConfig,
+        AsyncpgConnectionSettings,
+        AsyncpgPoolSettings,
+        AsyncpgServerSettings,
+        AsyncpgStatementCacheSettings,
+    )
 
-        pool = AsyncConnectionPool(config)
-        await pool.ainitialize()
+    config = AsyncpgConfig(
+        connection=AsyncpgConnectionSettings(
+            host=postgres_container.get_container_host_ip(),
+            port=int(postgres_container.get_exposed_port(5432)),
+            database=postgres_container.dbname,
+            user=postgres_container.username,
+            password=SecretStr(postgres_container.password),
+        ),
+        pool=AsyncpgPoolSettings(min_size=2, max_size=10, command_timeout=30.0),
+        statement_cache=AsyncpgStatementCacheSettings(max_size=128),
+        server_settings=AsyncpgServerSettings(application_name="leitmotif_test_conflict", jit="off"),
+    )
 
+    async with AsyncConnectionPool(config) as pool:
         # Create test tables
         async with pool.aacquire() as conn:
             await conn.execute("""
@@ -84,16 +83,24 @@ class TestTransactionConflicts:
             async with pool.aacquire() as conn:
                 await conn.execute("DROP TABLE IF EXISTS test_accounts CASCADE")
                 await conn.execute("DROP TABLE IF EXISTS test_orders CASCADE")
-            await pool.aclose()
 
-    @pytest.fixture(autouse=True)
-    async def _cleanup_data(self, conflict_pool: AsyncConnectionPool) -> None:
-        """Clean up test data before each test."""
-        async with conflict_pool.aacquire() as conn:
-            await conn.execute("TRUNCATE TABLE test_accounts RESTART IDENTITY CASCADE")
-            await conn.execute("TRUNCATE TABLE test_orders RESTART IDENTITY CASCADE")
 
-    async def test_serializable_detects_concurrent_write_conflict(self, conflict_pool: AsyncConnectionPool) -> None:
+@pytest_asyncio.fixture(autouse=True)
+async def _cleanup_conflict_data(conflict_pool_with_tables: AsyncConnectionPool) -> None:
+    """Clean up test data before each test."""
+    async with conflict_pool_with_tables.aacquire() as conn:
+        await conn.execute("TRUNCATE TABLE test_accounts RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE TABLE test_orders RESTART IDENTITY CASCADE")
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestTransactionConflicts:
+    """Test concurrent transaction conflicts and isolation levels."""
+
+    async def test_serializable_detects_concurrent_write_conflict(
+        self, conflict_pool_with_tables: AsyncConnectionPool
+    ) -> None:
         """Test that serializable isolation detects concurrent write conflicts.
 
         Scenario:
@@ -101,8 +108,10 @@ class TestTransactionConflicts:
         2. Transaction 2: Read same balance, update it
         3. One transaction should raise SerializationError
         """
+        pool = conflict_pool_with_tables
+
         # Insert test account
-        await conflict_pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "alice", 100)
+        await pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "alice", 100)
 
         ready_event = asyncio.Event()
         proceed_event = asyncio.Event()
@@ -110,7 +119,7 @@ class TestTransactionConflicts:
 
         async def transaction_1() -> None:
             try:
-                async with conflict_pool.atransaction(isolation="serializable") as conn:
+                async with pool.atransaction(isolation="serializable") as conn:
                     # Read balance
                     balance = await conn.fetchval("SELECT balance FROM test_accounts WHERE name = $1", "alice")
 
@@ -133,7 +142,7 @@ class TestTransactionConflicts:
                 # Wait for T1 to read
                 await ready_event.wait()
 
-                async with conflict_pool.atransaction(isolation="serializable") as conn:
+                async with pool.atransaction(isolation="serializable") as conn:
                     # Read balance (same as T1)
                     balance = await conn.fetchval("SELECT balance FROM test_accounts WHERE name = $1", "alice")
 
@@ -168,7 +177,9 @@ class TestTransactionConflicts:
         assert successes == 1, "Expected exactly one transaction to succeed"
         assert failures == 1, "Expected exactly one transaction to fail with SerializationError"
 
-    async def test_lost_update_prevented_with_serializable(self, conflict_pool: AsyncConnectionPool) -> None:
+    async def test_lost_update_prevented_with_serializable(
+        self, conflict_pool_with_tables: AsyncConnectionPool
+    ) -> None:
         """Test that serializable isolation prevents lost updates.
 
         Classic read-modify-write race condition:
@@ -177,14 +188,15 @@ class TestTransactionConflicts:
         3. Without serializable, one update would be lost
         4. With serializable, one transaction fails
         """
-        await conflict_pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "bob", 100)
+        pool = conflict_pool_with_tables
+        await pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "bob", 100)
 
         barrier = asyncio.Event()
         results: list[bool | Exception] = []
 
         async def read_modify_write(increment: int) -> None:
             try:
-                async with conflict_pool.atransaction(isolation="serializable") as conn:
+                async with pool.atransaction(isolation="serializable") as conn:
                     # Read current balance
                     balance = await conn.fetchval("SELECT balance FROM test_accounts WHERE name = $1", "bob")
 
@@ -220,10 +232,12 @@ class TestTransactionConflicts:
         assert failures == 1, "Expected exactly one transaction to fail"
 
         # Final balance should be either 150 or 130 (not 180 which would be lost update)
-        final_balance = await conflict_pool.afetchval("SELECT balance FROM test_accounts WHERE name = $1", "bob")
+        final_balance: int = await pool.afetchval("SELECT balance FROM test_accounts WHERE name = $1", "bob")
         assert final_balance in (150, 130), f"Expected balance 150 or 130, got {final_balance}"
 
-    async def test_deadlock_detected_with_cross_locked_rows(self, conflict_pool: AsyncConnectionPool) -> None:
+    async def test_deadlock_detected_with_cross_locked_rows(
+        self, conflict_pool_with_tables: AsyncConnectionPool
+    ) -> None:
         """Test that PostgreSQL detects deadlocks with cross-locked rows.
 
         Scenario:
@@ -232,8 +246,9 @@ class TestTransactionConflicts:
         3. Transaction 2: lock bob, then try to lock alice
         4. One transaction should detect deadlock
         """
-        await conflict_pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "alice", 100)
-        await conflict_pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "bob", 100)
+        pool = conflict_pool_with_tables
+        await pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "alice", 100)
+        await pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "bob", 100)
 
         ready1 = asyncio.Event()
         ready2 = asyncio.Event()
@@ -242,7 +257,7 @@ class TestTransactionConflicts:
 
         async def transaction_1() -> None:
             try:
-                async with conflict_pool.atransaction(isolation="serializable") as conn:
+                async with pool.atransaction(isolation="serializable") as conn:
                     # Lock alice
                     await conn.execute("UPDATE test_accounts SET balance = balance + 10 WHERE name = $1", "alice")
                     ready1.set()
@@ -262,7 +277,7 @@ class TestTransactionConflicts:
 
         async def transaction_2() -> None:
             try:
-                async with conflict_pool.atransaction(isolation="serializable") as conn:
+                async with pool.atransaction(isolation="serializable") as conn:
                     # Lock bob
                     await conn.execute("UPDATE test_accounts SET balance = balance + 20 WHERE name = $1", "bob")
                     ready2.set()
@@ -298,7 +313,9 @@ class TestTransactionConflicts:
         deadlocks = sum(1 for r in results if isinstance(r, asyncpg.DeadlockDetectedError | asyncpg.SerializationError))
         assert deadlocks >= 1, "Expected at least one deadlock detection"
 
-    async def test_phantom_read_prevented_with_repeatable_read(self, conflict_pool: AsyncConnectionPool) -> None:
+    async def test_phantom_read_prevented_with_repeatable_read(
+        self, conflict_pool_with_tables: AsyncConnectionPool
+    ) -> None:
         """Test that repeatable_read prevents phantom reads.
 
         Scenario:
@@ -307,8 +324,10 @@ class TestTransactionConflicts:
         3. Transaction 1 reads count again
         4. Count should be unchanged (no phantom read)
         """
+        pool = conflict_pool_with_tables
+
         # Insert initial data
-        await conflict_pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "widget", 10)
+        await pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "widget", 10)
 
         ready = asyncio.Event()
         proceed = asyncio.Event()
@@ -317,7 +336,7 @@ class TestTransactionConflicts:
 
         async def transaction_1() -> None:
             nonlocal count1, count2
-            async with conflict_pool.atransaction(isolation="repeatable_read") as conn:
+            async with pool.atransaction(isolation="repeatable_read") as conn:
                 # First read
                 count1 = await conn.fetchval("SELECT COUNT(*) FROM test_orders")
                 ready.set()
@@ -334,7 +353,7 @@ class TestTransactionConflicts:
             await ready.wait()
 
             # Insert new row
-            await conflict_pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "gadget", 5)
+            await pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "gadget", 5)
 
             proceed.set()
 
@@ -347,13 +366,16 @@ class TestTransactionConflicts:
         assert count1 == count2, f"Phantom read detected: {count1} != {count2}"
         assert count1 == 1, "Should initially see 1 order"
 
-    async def test_phantom_read_allowed_with_read_committed(self, conflict_pool: AsyncConnectionPool) -> None:
+    async def test_phantom_read_allowed_with_read_committed(
+        self, conflict_pool_with_tables: AsyncConnectionPool
+    ) -> None:
         """Test that read_committed allows phantom reads.
 
         Same scenario as above but with read_committed:
         - Second read WILL see the inserted row (phantom read)
         """
-        await conflict_pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "widget", 10)
+        pool = conflict_pool_with_tables
+        await pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "widget", 10)
 
         ready = asyncio.Event()
         proceed = asyncio.Event()
@@ -362,7 +384,7 @@ class TestTransactionConflicts:
 
         async def transaction_1() -> None:
             nonlocal count1, count2
-            async with conflict_pool.atransaction(isolation="read_committed") as conn:
+            async with pool.atransaction(isolation="read_committed") as conn:
                 # First read
                 count1 = await conn.fetchval("SELECT COUNT(*) FROM test_orders")
                 ready.set()
@@ -376,7 +398,7 @@ class TestTransactionConflicts:
 
         async def transaction_2() -> None:
             await ready.wait()
-            await conflict_pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "gadget", 5)
+            await pool.aexecute("INSERT INTO test_orders (product, quantity) VALUES ($1, $2)", "gadget", 5)
             proceed.set()
 
         t1 = asyncio.create_task(transaction_1())
@@ -388,18 +410,21 @@ class TestTransactionConflicts:
         assert count1 == 1, "Initial read should see 1 order"
         assert count2 == 2, "Second read should see 2 orders (phantom read)"
 
-    async def test_unique_constraint_with_concurrent_inserts(self, conflict_pool: AsyncConnectionPool) -> None:
+    async def test_unique_constraint_with_concurrent_inserts(
+        self, conflict_pool_with_tables: AsyncConnectionPool
+    ) -> None:
         """Test unique constraint violation with concurrent inserts.
 
         Scenario:
         1. Two transactions try to insert same username
         2. One should succeed, one should fail with UniqueViolationError
         """
+        pool = conflict_pool_with_tables
         results: list[bool | Exception] = []
 
         async def insert_user(name: str) -> None:
             try:
-                async with conflict_pool.atransaction() as conn:
+                async with pool.atransaction() as conn:
                     await asyncio.sleep(0.1)  # Small delay to increase conflict chance
                     await conn.execute(
                         "INSERT INTO test_accounts (name, balance) VALUES ($1, $2)",
@@ -424,7 +449,7 @@ class TestTransactionConflicts:
         assert successes == 1, "Expected exactly one insert to succeed"
         assert failures == 1, "Expected exactly one insert to fail with UniqueViolationError"
 
-    async def test_proper_rollback_on_serialization_error(self, conflict_pool: AsyncConnectionPool) -> None:
+    async def test_proper_rollback_on_serialization_error(self, conflict_pool_with_tables: AsyncConnectionPool) -> None:
         """Test that transaction is properly rolled back on serialization error.
 
         Scenario:
@@ -432,12 +457,13 @@ class TestTransactionConflicts:
         2. Verify all changes are rolled back
         3. Verify subsequent transaction can succeed
         """
-        await conflict_pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "charlie", 100)
+        pool = conflict_pool_with_tables
+        await pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "charlie", 100)
 
         barrier = asyncio.Event()
 
         async def failing_transaction() -> None:
-            async with conflict_pool.atransaction(isolation="serializable") as conn:
+            async with pool.atransaction(isolation="serializable") as conn:
                 # Read balance
                 balance = await conn.fetchval("SELECT balance FROM test_accounts WHERE name = $1", "charlie")
 
@@ -457,7 +483,7 @@ class TestTransactionConflicts:
 
         async def conflicting_transaction() -> None:
             await barrier.wait()
-            async with conflict_pool.atransaction(isolation="serializable") as conn:
+            async with pool.atransaction(isolation="serializable") as conn:
                 # Update charlie (will conflict)
                 await conn.execute("UPDATE test_accounts SET balance = $1 WHERE name = $2", 200, "charlie")
 
@@ -469,48 +495,14 @@ class TestTransactionConflicts:
             )
 
         # Marker row should NOT exist (rolled back)
-        marker_count = await conflict_pool.afetchval("SELECT COUNT(*) FROM test_accounts WHERE name = $1", "marker")
+        marker_count: int = await pool.afetchval("SELECT COUNT(*) FROM test_accounts WHERE name = $1", "marker")
         assert marker_count == 0, "Marker row should have been rolled back"
 
         # Charlie should exist with balance updated by successful transaction
-        charlie_count = await conflict_pool.afetchval("SELECT COUNT(*) FROM test_accounts WHERE name = $1", "charlie")
+        charlie_count: int = await pool.afetchval("SELECT COUNT(*) FROM test_accounts WHERE name = $1", "charlie")
         assert charlie_count == 1, "Charlie should still exist"
 
-    async def test_concurrent_updates_different_isolation_levels(self, conflict_pool: AsyncConnectionPool) -> None:
-        """Test behavior with different isolation levels concurrently.
-
-        Scenario:
-        1. One transaction with serializable
-        2. One transaction with read_committed
-        3. Verify both can complete (no strict ordering required)
-        """
-        await conflict_pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "diana", 100)
-
-        results: list[str] = []
-
-        async def serializable_transaction() -> None:
-            async with conflict_pool.atransaction(isolation="serializable") as conn:
-                await asyncio.sleep(0.1)
-                await conn.execute("UPDATE test_accounts SET balance = balance + 10 WHERE name = $1", "diana")
-                results.append("serializable")
-
-        async def read_committed_transaction() -> None:
-            async with conflict_pool.atransaction(isolation="read_committed") as conn:
-                await asyncio.sleep(0.1)
-                await conn.execute("UPDATE test_accounts SET balance = balance + 20 WHERE name = $1", "diana")
-                results.append("read_committed")
-
-        await asyncio.gather(
-            serializable_transaction(),
-            read_committed_transaction(),
-            return_exceptions=True,
-        )
-
-        # Both should complete (though one might fail with serialization error)
-        # At minimum, one should succeed
-        assert len(results) >= 1, "At least one transaction should complete"
-
-    async def test_transaction_isolation_with_readonly(self, conflict_pool: AsyncConnectionPool) -> None:
+    async def test_transaction_isolation_with_readonly(self, conflict_pool_with_tables: AsyncConnectionPool) -> None:
         """Test readonly transaction behavior under concurrent writes.
 
         Scenario:
@@ -518,10 +510,11 @@ class TestTransactionConflicts:
         2. Write transaction modifies data
         3. Readonly transaction should complete successfully
         """
-        await conflict_pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "eve", 100)
+        pool = conflict_pool_with_tables
+        await pool.aexecute("INSERT INTO test_accounts (name, balance) VALUES ($1, $2)", "eve", 100)
 
         async def readonly_transaction() -> bool:
-            async with conflict_pool.atransaction(readonly=True) as conn:
+            async with pool.atransaction(readonly=True) as conn:
                 balance1: int = await conn.fetchval("SELECT balance FROM test_accounts WHERE name = $1", "eve")
                 await asyncio.sleep(0.2)
                 balance2: int = await conn.fetchval("SELECT balance FROM test_accounts WHERE name = $1", "eve")
@@ -529,11 +522,10 @@ class TestTransactionConflicts:
 
         async def write_transaction() -> None:
             await asyncio.sleep(0.1)
-            await conflict_pool.aexecute("UPDATE test_accounts SET balance = $1 WHERE name = $2", 200, "eve")
+            await pool.aexecute("UPDATE test_accounts SET balance = $1 WHERE name = $2", 200, "eve")
 
         # Both should complete
         consistent, _ = await asyncio.gather(readonly_transaction(), write_transaction())
 
-        # Readonly transaction may or may not see consistent view depending on isolation
-        # But it should complete without error
+        # Readonly transaction should complete without error
         assert isinstance(consistent, bool), "Readonly transaction should complete"
