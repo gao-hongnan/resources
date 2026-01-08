@@ -1,0 +1,52 @@
+title: Playbook
+author: Gao Hongnan
+copyright: "2025"
+logo: logo.png
+only_build_toc_files: true
+
+execute:
+  execute_notebooks: cache
+  timeout: 300
+
+launch_buttons:
+  notebook_interface        : classic
+  thebe                     : false
+  colab_url                 : "https://colab.research.google.com"
+
+latex:
+  latex_documents:
+    targetname: book.tex
+
+exclude_patterns: ["**.ipynb_checkpoints"]
+
+bibtex_bibfiles:
+  - references.bib
+
+repository:
+  url         : https://github.com/gao-hongnan/transcreation
+  path_to_book: "playbook/"
+  branch      : main
+
+sphinx:
+  config:
+    templates_path: ['_templates']
+    mathjax_path          : https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+    bibtex_reference_style: author_year
+    add_module_names      : True
+    autosummary_generate  : True
+    html_baseurl          : https://gao-hongnan.github.io/transcreation/
+    html_js_files:
+      - https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js
+    suppress_warnings: ["mystnb.unknown_mime_type"]
+    html_extra_path: ["assets"]
+  extra_extensions:
+    - sphinx_sitemap
+    - sphinx_proof
+    - sphinx_inline_tabs
+    - 'sphinx.ext.autodoc'
+    - 'sphinx.ext.napoleon'
+    - 'sphinx.ext.mathjax'
+    - 'sphinx.ext.viewcode'
+    - 'sphinx.ext.autosummary'
+    - 'sphinxcontrib.mermaid'
+    - 'sphinxcontrib.bibtex'
