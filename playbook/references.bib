@@ -1,0 +1,384 @@
+% =============================================================================
+% Resilience Patterns - Primary Sources
+% =============================================================================
+
+@misc{fowler2014circuitbreaker,
+  title = {{CircuitBreaker}},
+  author = {Fowler, Martin},
+  year = {2014},
+  month = {March},
+  howpublished = {\url{https://martinfowler.com/bliki/CircuitBreaker.html}},
+  note = {Seminal article introducing the Circuit Breaker pattern to the software community, explaining fail-fast principles and state machine design},
+  publisher = {martinfowler.com}
+}
+
+@book{nygard2018releaseit,
+  title = {{Release It!: Design and Deploy Production-Ready Software}},
+  author = {Nygard, Michael T.},
+  year = {2018},
+  edition = {2nd},
+  publisher = {Pragmatic Bookshelf},
+  isbn = {978-1680502398},
+  note = {Stability patterns including Circuit Breaker, Bulkhead, Timeout, and Retry}
+}
+
+@misc{google2017sre-cascading,
+  title = {{Site Reliability Engineering: Chapter 22 - Addressing Cascading Failures}},
+  author = {Beyer, Betsy and Jones, Chris and Petoff, Jennifer and Murphy, Niall Richard},
+  year = {2017},
+  howpublished = {\url{https://sre.google/sre-book/addressing-cascading-failures/}},
+  note = {Google SRE Book - Retry best practices, exponential backoff, retry budgets, and avoiding retry amplification},
+  publisher = {O'Reilly Media}
+}
+
+@misc{google2017sre-overload,
+  title = {{Site Reliability Engineering: Chapter 21 - Handling Overload}},
+  author = {Beyer, Betsy and Jones, Chris and Petoff, Jennifer and Murphy, Niall Richard},
+  year = {2017},
+  howpublished = {\url{https://sre.google/sre-book/handling-overload/}},
+  note = {Google SRE Book - Load shedding, graceful degradation, and backend protection strategies},
+  publisher = {O'Reilly Media}
+}
+
+@misc{google2017sre-loadbalancing,
+  title = {{Site Reliability Engineering: Chapter 20 - Load Balancing in the Datacenter}},
+  author = {Beyer, Betsy and Jones, Chris and Petoff, Jennifer and Murphy, Niall Richard},
+  year = {2017},
+  howpublished = {\url{https://sre.google/sre-book/load-balancing-datacenter/}},
+  note = {Google SRE Book - Backend health detection, subsetting, and load balancing strategies that complement circuit breaking},
+  publisher = {O'Reilly Media}
+}
+
+@misc{microsoft2023circuitbreaker,
+  title = {{Circuit Breaker pattern - Azure Architecture Center}},
+  author = {{Microsoft Corporation}},
+  year = {2023},
+  howpublished = {\url{https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker}},
+  note = {Microsoft's cloud architecture guidance on Circuit Breaker pattern including state transitions, thresholds, and monitoring}
+}
+
+@misc{netflix2018hystrix,
+  title = {{Hystrix Wiki: How it Works}},
+  author = {{Netflix OSS}},
+  year = {2018},
+  howpublished = {\url{https://github.com/Netflix/Hystrix/wiki/How-it-Works}},
+  note = {Netflix's circuit breaker implementation documenting request flow, fallback mechanisms, and circuit health calculation}
+}
+
+@misc{resilience4j2024docs,
+  title = {{Resilience4j: Circuit Breaker}},
+  author = {{Resilience4j Contributors}},
+  year = {2024},
+  howpublished = {\url{https://resilience4j.readme.io/docs/circuitbreaker}},
+  note = {Modern Java library implementing Circuit Breaker with count-based and time-based sliding windows, configurable thresholds, and metrics}
+}
+
+@misc{polly2024docs,
+  title = {{Polly: Circuit Breaker Policy}},
+  author = {{App vNext Contributors}},
+  year = {2024},
+  howpublished = {\url{https://github.com/App-vNext/Polly/wiki/Circuit-Breaker}},
+  note = {.NET resilience library implementing Circuit Breaker with configurable failure thresholds and break durations}
+}
+
+@misc{brooker2015backoff,
+  title = {{Exponential Backoff and Jitter}},
+  author = {Brooker, Marc},
+  year = {2015},
+  month = {March},
+  howpublished = {\url{https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/}},
+  note = {AWS Architecture Blog - Analysis of Full Jitter, Equal Jitter, and Decorrelated Jitter strategies},
+  publisher = {Amazon Web Services}
+}
+
+@misc{deutsch1994fallacies,
+  title = {{The Eight Fallacies of Distributed Computing}},
+  author = {Deutsch, Peter},
+  year = {1994},
+  howpublished = {\url{https://en.wikipedia.org/wiki/Fallacies_of_distributed_computing}},
+  note = {Originally formulated at Sun Microsystems; describes false assumptions programmers make about distributed systems (network reliability, latency, bandwidth, security, topology, administration, transport cost, homogeneity)}
+}
+
+% =============================================================================
+% Google API Improvement Proposals
+% =============================================================================
+
+@misc{google2024aip132,
+  title = {{AIP-132: Standard Methods: List}},
+  author = {{Google LLC}},
+  year = {2024},
+  howpublished = {\url{https://google.aip.dev/132}},
+  note = {Google API Improvement Proposals - List Method Specification},
+  timestamp = {2024-11-02}
+}
+
+@misc{google2024aip158,
+  title = {{AIP-158: Pagination}},
+  author = {{Google LLC}},
+  year = {2024},
+  howpublished = {\url{https://google.aip.dev/158}},
+  note = {Google API Improvement Proposals - Pagination Specification},
+  timestamp = {2024-11-02}
+}
+
+@misc{google2024aip131,
+  title = {{AIP-131: Standard Methods: Get}},
+  author = {{Google LLC}},
+  year = {2024},
+  howpublished = {\url{https://google.aip.dev/131}},
+  note = {Google API Improvement Proposals - Get Method Specification},
+  timestamp = {2024-11-02}
+}
+
+@misc{google2024aip122,
+  title = {{AIP-122: Resource Names}},
+  author = {{Google LLC}},
+  year = {2024},
+  howpublished = {\url{https://google.aip.dev/122}},
+  note = {Google API Improvement Proposals - Resource Naming Specification},
+  timestamp = {2024-11-02}
+}
+
+% =============================================================================
+% Dead Letter Queue Pattern References
+% =============================================================================
+
+@book{hohpe2003eip,
+  title = {{Enterprise Integration Patterns: Designing, Building, and Deploying Messaging Solutions}},
+  author = {Hohpe, Gregor and Woolf, Bobby},
+  year = {2003},
+  publisher = {Addison-Wesley Professional},
+  isbn = {978-0321200686},
+  note = {Comprehensive guide to messaging patterns including Dead Letter Channel and Invalid Message Channel}
+}
+
+@misc{aws2024sqs-dlq,
+  title = {{Using Amazon SQS dead-letter queues}},
+  author = {{Amazon Web Services}},
+  year = {2024},
+  howpublished = {\url{https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html}},
+  note = {AWS documentation on SQS dead-letter queue configuration and best practices}
+}
+
+@misc{azure2024servicebus,
+  title = {{Dead-letter queues in Azure Service Bus}},
+  author = {{Microsoft Azure}},
+  year = {2024},
+  howpublished = {\url{https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-dead-letter-queues}},
+  note = {Azure documentation on Service Bus dead-letter queue implementation}
+}
+
+@misc{rabbitmq2024dlx,
+  title = {{Dead Letter Exchanges}},
+  author = {{VMware}},
+  year = {2024},
+  howpublished = {\url{https://www.rabbitmq.com/docs/dlx}},
+  note = {RabbitMQ documentation on dead letter exchange configuration}
+}
+
+@misc{morling2025kafka,
+  title = {{KIP-932: Queues for Kafka}},
+  author = {Morling, Gunnar},
+  year = {2025},
+  howpublished = {\url{https://www.morling.dev/blog/kip-932-queues-for-kafka/}},
+  note = {Analysis of Kafka queue improvements and dead letter topic patterns}
+}
+
+@misc{linkedin2024sre,
+  title = {{School of SRE: Message Queue Key Concepts}},
+  author = {{LinkedIn Engineering}},
+  year = {2024},
+  howpublished = {\url{https://linkedin.github.io/school-of-sre/level101/messagequeue/key_concepts/}},
+  note = {LinkedIn's educational material on message queue patterns and reliability}
+}
+
+% =============================================================================
+% Distributed Systems and Data-Intensive Applications
+% =============================================================================
+
+@book{kleppmann2017ddia,
+  title = {{Designing Data-Intensive Applications: The Big Ideas Behind Reliable, Scalable, and Maintainable Systems}},
+  author = {Kleppmann, Martin},
+  year = {2017},
+  publisher = {O'Reilly Media},
+  isbn = {978-1449373320},
+  note = {Comprehensive guide to distributed systems principles including fault tolerance, consistency, and reliability patterns}
+}
+
+@article{floyd1994sync,
+  title = {{The Synchronization of Periodic Routing Messages}},
+  author = {Floyd, Sally and Jacobson, Van},
+  journal = {IEEE/ACM Transactions on Networking},
+  volume = {2},
+  number = {2},
+  pages = {122--136},
+  year = {1994},
+  publisher = {IEEE},
+  doi = {10.1109/90.298431},
+  note = {Seminal paper on thundering herd and synchronized retry problems in distributed systems}
+}
+
+% =============================================================================
+% AWS Well-Architected Framework
+% =============================================================================
+
+@misc{amazon2023wellarchitected,
+  title = {{AWS Well-Architected Framework: Reliability Pillar}},
+  author = {{Amazon Web Services}},
+  year = {2023},
+  howpublished = {\url{https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/}},
+  note = {Best practices for building reliable systems including retry strategies and fault isolation}
+}
+
+% =============================================================================
+% Python Libraries
+% =============================================================================
+
+@misc{tenacity2024docs,
+  title = {{Tenacity: Retry Library for Python}},
+  author = {{Tenacity Contributors}},
+  year = {2024},
+  howpublished = {\url{https://tenacity.readthedocs.io/}},
+  note = {Python library implementing retry with exponential backoff, jitter, and configurable stop conditions}
+}
+
+% =============================================================================
+% ACID Properties and Database Theory
+% =============================================================================
+
+@article{harderreuter1983acid,
+  title = {{Principles of Transaction-Oriented Database Recovery}},
+  author = {Härder, Theo and Reuter, Andreas},
+  journal = {ACM Computing Surveys},
+  volume = {15},
+  number = {4},
+  pages = {287--317},
+  year = {1983},
+  publisher = {ACM},
+  doi = {10.1145/289.291},
+  note = {Coined the ACID acronym for database transaction properties}
+}
+
+@article{pritchett2008base,
+  title = {{BASE: An Acid Alternative}},
+  author = {Pritchett, Dan},
+  journal = {ACM Queue},
+  volume = {6},
+  number = {3},
+  pages = {48--55},
+  year = {2008},
+  publisher = {ACM},
+  doi = {10.1145/1394127.1394128},
+  note = {Introduced BASE (Basically Available, Soft state, Eventual consistency) as an alternative to ACID for distributed systems}
+}
+
+@inproceedings{gray1981transaction,
+  title = {{The Transaction Concept: Virtues and Limitations}},
+  author = {Gray, Jim},
+  booktitle = {Proceedings of the 7th International Conference on Very Large Data Bases (VLDB)},
+  pages = {144--154},
+  year = {1981},
+  url = {http://research.microsoft.com/~gray/papers/theTransactionConcept.pdf},
+  note = {Foundational paper on transaction semantics}
+}
+
+@book{grayreuter1993distributed,
+  title = {{Transaction Processing: Concepts and Techniques}},
+  author = {Gray, Jim and Reuter, Andreas},
+  year = {1993},
+  publisher = {Morgan Kaufmann},
+  isbn = {978-1558601901},
+  note = {Comprehensive reference on transaction processing and distributed databases}
+}
+
+@book{bernstein1987ccr,
+  title = {{Concurrency Control and Recovery in Database Systems}},
+  author = {Bernstein, Philip A. and Hadzilacos, Vassos and Goodman, Nathan},
+  year = {1987},
+  publisher = {Addison-Wesley},
+  url = {https://www.microsoft.com/en-us/research/publication/concurrency-control-and-recovery-in-database-systems/},
+  note = {Canonical reference for serializability theory and concurrency control}
+}
+
+@article{eswaran1976locks,
+  title = {{The Notions of Consistency and Predicate Locks in a Database System}},
+  author = {Eswaran, Kapali P. and Gray, Jim N. and Lorie, Raymond A. and Traiger, Irving L.},
+  journal = {Communications of the ACM},
+  volume = {19},
+  number = {11},
+  pages = {624--633},
+  year = {1976},
+  publisher = {ACM},
+  doi = {10.1145/360363.360369},
+  note = {Proof of Two-Phase Locking correctness}
+}
+
+@article{mohan1992aries,
+  title = {{ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking and Partial Rollbacks Using Write-Ahead Logging}},
+  author = {Mohan, C. and Haderle, Don and Lindsay, Bruce and Pirahesh, Hamid and Schwarz, Peter},
+  journal = {ACM Transactions on Database Systems},
+  volume = {17},
+  number = {1},
+  pages = {94--162},
+  year = {1992},
+  publisher = {ACM},
+  doi = {10.1145/128765.128770},
+  note = {The WAL algorithm used by most modern databases}
+}
+
+@article{fekete2005ssi,
+  title = {{Making Snapshot Isolation Serializable}},
+  author = {Fekete, Alan and Liarokapis, Dimitrios and O'Neil, Elizabeth and O'Neil, Patrick and Shasha, Dennis},
+  journal = {ACM Transactions on Database Systems},
+  volume = {30},
+  number = {2},
+  pages = {492--528},
+  year = {2005},
+  publisher = {ACM},
+  doi = {10.1145/1071610.1071615},
+  note = {Theory of Serializable Snapshot Isolation}
+}
+
+@article{ports2012ssi,
+  title = {{Serializable Snapshot Isolation in PostgreSQL}},
+  author = {Ports, Dan R. K. and Grittner, Kevin},
+  journal = {Proceedings of the VLDB Endowment},
+  volume = {5},
+  number = {12},
+  pages = {1850--1861},
+  year = {2012},
+  publisher = {VLDB Endowment},
+  doi = {10.14778/2367502.2367523},
+  note = {PostgreSQL's SSI implementation}
+}
+
+@article{brewer2012cap,
+  title = {{CAP Twelve Years Later: How the "Rules" Have Changed}},
+  author = {Brewer, Eric},
+  journal = {IEEE Computer},
+  volume = {45},
+  number = {2},
+  pages = {23--29},
+  year = {2012},
+  publisher = {IEEE},
+  doi = {10.1109/MC.2012.37},
+  note = {Updated interpretation of CAP theorem}
+}
+
+@inproceedings{corbett2012spanner,
+  title = {{Spanner: Google's Globally-Distributed Database}},
+  author = {Corbett, James C. and Dean, Jeffrey and Epstein, Michael and others},
+  booktitle = {Proceedings of OSDI},
+  pages = {261--264},
+  year = {2012},
+  note = {External consistency at global scale}
+}
+
+@misc{sec2013knight,
+  title = {{SEC Charges Knight Capital With Violations of Market Access Rule}},
+  author = {{U.S. Securities and Exchange Commission}},
+  year = {2013},
+  month = {October},
+  howpublished = {\url{https://www.sec.gov/news/press-release/2013-222}},
+  note = {SEC report on Knight Capital's \$440 million loss from software deployment failure}
+}
