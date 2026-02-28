@@ -1,0 +1,7 @@
+format: jb-book
+root: intro.md
+chapters:
+  - file: concept.md
+  - file: flow.md
+  - file: propagator_types.md
+  - file: future.md

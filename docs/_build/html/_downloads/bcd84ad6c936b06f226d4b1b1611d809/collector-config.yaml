@@ -1,0 +1,65 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+# https://opentelemetry.io/docs/collector/configuration/
+# https://opentelemetry.io/docs/collector/configuration/#processors
+processors:
+  batch:
+  # memory_limiter:
+  #   check_interval: 5s
+  #   limit_mib: 4000
+  #   spike_limit_mib: 500
+  # resource: # NOTE: if need enable this must add it below in pipelines's processors list [...]
+  #   attributes:
+  #     - key: service.name
+  #       value: v2
+  #       action: upsert
+
+exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: otel_demo
+    send_timestamps: true
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  otlp:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp, debug]
+
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, debug]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]

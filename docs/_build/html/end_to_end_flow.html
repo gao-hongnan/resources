@@ -1,0 +1,1158 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>OpenTelemetry End-to-End Telemetry Flow &#8212; Instrumentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=3ee479438cf8b5e0d341" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=a3416100" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css?v=13237357" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css?v=be8a1c11" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="_static/tabs.css?v=4c969af8" />
+    <link rel="stylesheet" type="text/css" href="_static/proof.css?v=b4b7a797" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341" />
+  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=3ee479438cf8b5e0d341"></script>
+
+    <script src="_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="_static/tabs.js?v=3ee01567"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js?v=4a39c7ea"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
+    <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script type="module">
+import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.2.0/dist/mermaid.esm.min.mjs";
+const load = async () => {
+    await mermaid.run();
+    const all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_to_add_zoom = 1 === -1 ? all_mermaids.length : 1;
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+    if(mermaids_to_add_zoom > 0) {
+        var svgs = d3.selectAll(".mermaid[data-zoom-id=id-e3ef233f-f12a-447f-a483-ee8cbd1ebe14] svg");
+        if(all_mermaids.length !== mermaids_processed.length) {
+            // try again in a sec, wait for mermaids to load
+            setTimeout(load, 200);
+            return;
+        } else if(svgs.size() !== mermaids_to_add_zoom) {
+            // try again in a sec, wait for mermaids to load
+            setTimeout(load, 200);
+            return;
+        } else {
+            svgs.each(function() {
+                var svg = d3.select(this);
+                svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                var inner = svg.select("g");
+                var zoom = d3.zoom().on("zoom", function(event) {
+                    inner.attr("transform", event.transform);
+                });
+                svg.call(zoom);
+            });
+        }
+    }
+};
+
+window.addEventListener("load", load);
+</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'end_to_end_flow';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Concept" href="concept.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+
+<a class="navbar-brand logo" href="intro.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Instrumentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        
+        <ul class="nav bd-sidenav bd-sidenav__home-link">
+            <li class="toctree-l1">
+                <a class="reference internal" href="intro.html">
+                    Documentation
+                </a>
+            </li>
+        </ul>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Instrumentation</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concept.html">Concept</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">OpenTelemetry End-to-End Telemetry Flow</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+<a href="https://github.com/gao-hongnan/instrumentation/issues/new?title=Issue%20on%20page%20%2Fend_to_end_flow.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button"
+   title="Open an issue"
+   data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+
+</a>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/end_to_end_flow.md" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.md</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script>
+
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>OpenTelemetry End-to-End Telemetry Flow</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#introduction">1. Introduction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#high-level-flow-diagram">2. High-Level Flow Diagram</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-1-telemetry-generation-application-sdk">3. Phase 1: Telemetry Generation (Application SDK)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#initialization-and-configuration">3.1. Initialization and Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#runtime-instrumentation-apis">3.2. Runtime Instrumentation APIs</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#context-propagation">3.3. Context Propagation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sdk-internal-processing-and-export">3.4. SDK Internal Processing and Export</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-2-data-reception-processing-otel-collector">4. Phase 2: Data Reception &amp; Processing (OTel Collector)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#otlp-receiver">4.1. OTLP Receiver</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-processing">4.2. Pipeline Processing</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-3-data-exporting-collector-to-backends">5. Phase 3: Data Exporting (Collector to Backends)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#trace-exporters">5.1. Trace Exporters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#metric-exporters">5.2. Metric Exporters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#log-exporters">5.3. Log Exporters</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-4-backend-storage-visualization">6. Phase 4: Backend Storage &amp; Visualization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-5-reliability-monitoring-extensions">7. Phase 5: Reliability, Monitoring &amp; Extensions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#detailed-walkthrough-tracing-a-request">8. Detailed Walkthrough: Tracing a Request</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices-troubleshooting">9. Best Practices &amp; Troubleshooting</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="opentelemetry-end-to-end-telemetry-flow">
+<h1>OpenTelemetry End-to-End Telemetry Flow<a class="headerlink" href="#opentelemetry-end-to-end-telemetry-flow" title="Link to this heading">#</a></h1>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#introduction" id="id1">1. Introduction</a></p></li>
+<li><p><a class="reference internal" href="#high-level-flow-diagram" id="id2">2. High-Level Flow Diagram</a></p></li>
+<li><p><a class="reference internal" href="#phase-1-telemetry-generation-application-sdk" id="id3">3. Phase 1: Telemetry Generation (Application SDK)</a></p>
+<ul>
+<li><p><a class="reference internal" href="#initialization-and-configuration" id="id4">3.1. Initialization and Configuration</a></p></li>
+<li><p><a class="reference internal" href="#runtime-instrumentation-apis" id="id5">3.2. Runtime Instrumentation APIs</a></p></li>
+<li><p><a class="reference internal" href="#context-propagation" id="id6">3.3. Context Propagation</a></p></li>
+<li><p><a class="reference internal" href="#sdk-internal-processing-and-export" id="id7">3.4. SDK Internal Processing and Export</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#phase-2-data-reception-processing-otel-collector" id="id8">4. Phase 2: Data Reception &amp; Processing (OTel Collector)</a></p>
+<ul>
+<li><p><a class="reference internal" href="#otlp-receiver" id="id9">4.1. OTLP Receiver</a></p></li>
+<li><p><a class="reference internal" href="#pipeline-processing" id="id10">4.2. Pipeline Processing</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#phase-3-data-exporting-collector-to-backends" id="id11">5. Phase 3: Data Exporting (Collector to Backends)</a></p>
+<ul>
+<li><p><a class="reference internal" href="#trace-exporters" id="id12">5.1. Trace Exporters</a></p></li>
+<li><p><a class="reference internal" href="#metric-exporters" id="id13">5.2. Metric Exporters</a></p></li>
+<li><p><a class="reference internal" href="#log-exporters" id="id14">5.3. Log Exporters</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#phase-4-backend-storage-visualization" id="id15">6. Phase 4: Backend Storage &amp; Visualization</a></p></li>
+<li><p><a class="reference internal" href="#phase-5-reliability-monitoring-extensions" id="id16">7. Phase 5: Reliability, Monitoring &amp; Extensions</a></p></li>
+<li><p><a class="reference internal" href="#detailed-walkthrough-tracing-a-request" id="id17">8. Detailed Walkthrough: Tracing a Request</a></p></li>
+<li><p><a class="reference internal" href="#best-practices-troubleshooting" id="id18">9. Best Practices &amp; Troubleshooting</a></p></li>
+</ul>
+</nav>
+<section id="introduction">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">1. Introduction</a><a class="headerlink" href="#introduction" title="Link to this heading">#</a></h2>
+<p>Welcome to the observability setup for this project! This document provides a
+detailed, step-by-step explanation of how we collect, process, and export
+telemetry data – specifically <strong>traces</strong>, <strong>metrics</strong>, and <strong>logs</strong> – using
+OpenTelemetry (OTel).</p>
+<p><strong>Goal:</strong> To provide a clear and rigorous understanding of the data flow,
+enabling developers, even those new to OpenTelemetry, to effectively use,
+maintain, and troubleshoot the observability system.</p>
+<p><strong>Core Components:</strong></p>
+<ol class="arabic simple">
+<li><p><strong>Application Code:</strong> Instrumented using the OpenTelemetry Python SDK.</p></li>
+<li><p><strong>OpenTelemetry Collector:</strong> A central agent that receives, processes, and
+exports telemetry data.</p></li>
+<li><p><strong>Backend Systems:</strong> Destinations for storing and visualizing telemetry
+(e.g., Jaeger for traces, Prometheus for metrics).</p></li>
+</ol>
+<p>We will follow the journey of telemetry data through several distinct phases,
+from its generation within the application to its final storage and
+visualization.</p>
+<p><em>(For a conceptual overview of OpenTelemetry and its components like the
+Collector, receivers, processors, and exporters, please refer to <code class="docutils literal notranslate"><span class="pre">concept.md</span></code>)</em>.</p>
+</section>
+<section id="high-level-flow-diagram">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">2. High-Level Flow Diagram</a><a class="headerlink" href="#high-level-flow-diagram" title="Link to this heading">#</a></h2>
+<p>This diagram illustrates the overall architecture and data path:</p>
+<pre data-zoom-id="id-e3ef233f-f12a-447f-a483-ee8cbd1ebe14" class="mermaid">
+        flowchart TB
+    %% Main application entry point
+    App[Application Code
+(e.g., llm_app.py)] --&gt; |&quot;1. initialize_telemetry(settings)&quot;| Init[Telemetry SDK Initialization]
+    Init --&gt; |&quot;OTel Python SDK&quot;| SDK[&quot;OTel SDK
+(TracerProvider, MeterProvider, LoggerProvider)&quot;]
+
+    %% SDK generates telemetry
+    SDK --&gt; |&quot;2. Generate: tracer.start_span()&quot;| TraceGen[&quot;Trace Generation&quot;]
+    SDK --&gt; |&quot;2. Generate: meter.create_counter().add()&quot;| MetricGen[&quot;Metric Generation&quot;]
+    SDK --&gt; |&quot;2. Generate: logger.info()&quot;| LogGen[&quot;Log Generation&quot;]
+
+    %% SDK exports data
+    subgraph SDKExport [&quot;SDK Export Processing&quot;]
+        direction TB
+        TraceGen --&gt; SpanProc[&quot;BatchSpanProcessor&quot;]
+        MetricGen --&gt; MetricRead[&quot;PeriodicExportingMetricReader&quot;]
+        LogGen --&gt; LogProc[&quot;BatchLogRecordProcessor&quot;]
+        SpanProc &amp; MetricRead &amp; LogProc --&gt; |&quot;3. Batch &amp; Format&quot;| OTLPExport[&quot;OTLP Exporter
+(gRPC/HTTP)&quot;]
+    end
+
+    %% Collector receives data
+    Collector[&quot;OpenTelemetry Collector&quot;]
+    subgraph CollectorReceivers [&quot;Collector: Receivers&quot;]
+        direction TB
+        OTLPReceiver[&quot;OTLP Receiver
+(Listens on 4317/4318)&quot;]
+    end
+
+    OTLPExport --&gt; |&quot;4. Send OTLP Data (Network)&quot;| OTLPReceiver
+
+    %% Collector processes data
+    subgraph CollectorPipelines [&quot;Collector: Processing Pipelines&quot;]
+        direction TB
+        PipelineEntry[&quot;Pipeline Routing
+(Traces, Metrics, Logs)&quot;]
+
+        subgraph TracePipeline [&quot;Traces Pipeline&quot;]
+            direction LR
+            MemLimitT[memory_limiter] --&gt; BatchT[batch] --&gt; ResourceT[resource]
+        end
+        subgraph MetricPipeline [&quot;Metrics Pipeline&quot;]
+            direction LR
+            MemLimitM[memory_limiter] --&gt; BatchM[batch] --&gt; ResourceM[resource]
+        end
+        subgraph LogPipeline [&quot;Logs Pipeline&quot;]
+            direction LR
+            MemLimitL[memory_limiter] --&gt; BatchL[batch] --&gt; ResourceL[resource]
+        end
+
+        OTLPReceiver --&gt; PipelineEntry
+        PipelineEntry -- &quot;Traces&quot; --&gt; MemLimitT
+        PipelineEntry -- &quot;Metrics&quot; --&gt; MemLimitM
+        PipelineEntry -- &quot;Logs&quot; --&gt; MemLimitL
+    end
+
+    %% Collector exports data
+    subgraph CollectorExporters [&quot;Collector: Exporters&quot;]
+        direction TB
+        JaegerExp[&quot;OTLP Exporter
+(to Jaeger)&quot;]
+        PromExp[&quot;Prometheus Exporter
+(Scrape Endpoint)&quot;]
+        DebugExp[&quot;Debug Exporter
+(Console Output)&quot;]
+    end
+
+    ResourceT --&gt; |&quot;5. Export Traces&quot;| JaegerExp
+    ResourceT --&gt; |&quot;5. Export Traces&quot;| DebugExp
+
+    ResourceM --&gt; |&quot;5. Export Metrics&quot;| PromExp
+    ResourceM --&gt; |&quot;5. Export Metrics&quot;| DebugExp
+
+    ResourceL --&gt; |&quot;5. Export Logs&quot;| DebugExp
+
+    %% Backends receive data
+    subgraph Backends [&quot;Observability Backends&quot;]
+        direction TB
+        Jaeger[&quot;Jaeger
+(Trace Storage &amp; UI)&quot;]
+        Prometheus[&quot;Prometheus
+(Metrics Storage &amp; Querying)&quot;]
+        CollectorLogs[&quot;Collector Console Logs&quot;]
+    end
+
+    JaegerExp --&gt; |&quot;6. Store Traces&quot;| Jaeger
+    PromExp --&gt; |&quot;6. Scrape Metrics (Pull)&quot;| Prometheus
+    DebugExp --&gt; |&quot;6. Display Telemetry&quot;| CollectorLogs
+
+    %% Style similar components
+    classDef sdk fill:#cde4ff,stroke:#333,stroke-width:1px;
+    classDef collector fill:#e1d5e7,stroke:#333,stroke-width:1px;
+    classDef backend fill:#d5e8d4,stroke:#333,stroke-width:1px;
+    classDef process fill:#f8cecc,stroke:#333,stroke-width:1px;
+
+    class App,Init,SDK,TraceGen,MetricGen,LogGen,SDKExport,OTLPExport sdk;
+    class Collector,CollectorReceivers,OTLPReceiver,CollectorPipelines,TracePipeline,MetricPipeline,LogPipeline,CollectorExporters,JaegerExp,PromExp,DebugExp collector;
+    class MemLimitT,BatchT,ResourceT,MemLimitM,BatchM,ResourceM,MemLimitL,BatchL,ResourceL process;
+    class Backends,Jaeger,Prometheus,CollectorLogs backend;
+    </pre></section>
+<section id="phase-1-telemetry-generation-application-sdk">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">3. Phase 1: Telemetry Generation (Application SDK)</a><a class="headerlink" href="#phase-1-telemetry-generation-application-sdk" title="Link to this heading">#</a></h2>
+<p>This phase occurs entirely within your instrumented application process (e.g.,
+<code class="docutils literal notranslate"><span class="pre">llm_app.py</span></code>). The OpenTelemetry Python SDK is responsible for generating,
+processing (minimally), and exporting telemetry data.</p>
+<section id="initialization-and-configuration">
+<h3><a class="toc-backref" href="#id4" role="doc-backlink">3.1. Initialization and Configuration</a><a class="headerlink" href="#initialization-and-configuration" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Loading Configuration:</strong> At startup, the application typically loads
+configuration from environment variables (e.g., <code class="docutils literal notranslate"><span class="pre">.env.local</span></code>) using
+libraries like <code class="docutils literal notranslate"><span class="pre">python-dotenv</span></code>. These variables define crucial OTel settings
+like the service name, version, and the target endpoint for the OTel
+Collector.</p></li>
+<li><p><strong>Settings Management:</strong> A Pydantic <code class="docutils literal notranslate"><span class="pre">BaseSettings</span></code> class (e.g.,
+<code class="docutils literal notranslate"><span class="pre">TelemetrySettings</span></code> in <code class="docutils literal notranslate"><span class="pre">instrumentation.settings</span></code>) parses and validates
+these environment variables, providing a structured, typed configuration
+object (<code class="docutils literal notranslate"><span class="pre">settings</span></code>). This ensures configuration is explicit and correct.</p></li>
+<li><p><strong>Telemetry Facade &amp; SDK Setup:</strong> The <code class="docutils literal notranslate"><span class="pre">Telemetry.from_settings(settings)</span></code>
+class method acts as a factory and central point of interaction. It performs
+the core SDK initialization:</p>
+<ul>
+<li><p><strong>Resource Creation:</strong> Creates an OTel <code class="docutils literal notranslate"><span class="pre">Resource</span></code> object, bundling
+attributes like <code class="docutils literal notranslate"><span class="pre">service.name</span></code>, <code class="docutils literal notranslate"><span class="pre">service.version</span></code>,
+<code class="docutils literal notranslate"><span class="pre">deployment.environment</span></code> defined in the settings. This <code class="docutils literal notranslate"><span class="pre">Resource</span></code> is
+associated with all telemetry emitted by this SDK instance.</p></li>
+<li><p><strong>Provider Setup:</strong> Initializes the global <code class="docutils literal notranslate"><span class="pre">TracerProvider</span></code>,
+<code class="docutils literal notranslate"><span class="pre">MeterProvider</span></code>, and <code class="docutils literal notranslate"><span class="pre">LoggerProvider</span></code>. These are the entry points for
+creating Tracers, Meters, and Loggers.</p></li>
+<li><p><strong>Processors:</strong> Configures processors for each signal type. Crucially,
+this includes:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">BatchSpanProcessor</span></code>: Buffers completed spans and exports them in
+batches.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BatchLogRecordProcessor</span></code>: Buffers log records and exports them in
+batches.</p></li>
+</ul>
+</li>
+<li><p><strong>Exporters:</strong> Configures exporters based on settings. Typically,
+<code class="docutils literal notranslate"><span class="pre">OTLPSpanExporter</span></code>, <code class="docutils literal notranslate"><span class="pre">OTLPMetricExporter</span></code>, and <code class="docutils literal notranslate"><span class="pre">OTLPLogExporter</span></code> are set
+up, pointing to the Collector’s OTLP endpoint (e.g.,
+<code class="docutils literal notranslate"><span class="pre">OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317</span></code>). The protocol
+(gRPC/HTTP) must match the Collector’s receiver configuration.</p></li>
+<li><p><strong>Metric Reader:</strong> Configures a <code class="docutils literal notranslate"><span class="pre">PeriodicExportingMetricReader</span></code> which
+links the <code class="docutils literal notranslate"><span class="pre">MeterProvider</span></code> to the <code class="docutils literal notranslate"><span class="pre">OTLPMetricExporter</span></code>, collecting and
+exporting metrics at a regular interval (e.g., every 30 seconds).</p></li>
+<li><p><strong>Logging Integration:</strong> Configures Python’s standard <code class="docutils literal notranslate"><span class="pre">logging</span></code> module
+to use an OTel <code class="docutils literal notranslate"><span class="pre">LoggingHandler</span></code>, ensuring logs are captured by the OTel
+<code class="docutils literal notranslate"><span class="pre">LoggerProvider</span></code> and automatically correlated with active traces.</p></li>
+</ul>
+</li>
+<li><p><strong>Singleton Pattern:</strong> The <code class="docutils literal notranslate"><span class="pre">Telemetry</span></code> class often implements a thread-safe
+singleton pattern (using <code class="docutils literal notranslate"><span class="pre">lru_cache</span></code> or a custom mechanism) to ensure only
+one instance of the SDK is configured and used throughout the application.</p></li>
+<li><p><strong>Custom Metric Instruments:</strong> The application uses the initialized
+<code class="docutils literal notranslate"><span class="pre">telemetry</span></code> facade to create specific metric instruments needed for its
+domain (e.g., <code class="docutils literal notranslate"><span class="pre">telemetry.create_counter(&quot;llm.requests.total&quot;,</span> <span class="pre">...)</span></code>,
+<code class="docutils literal notranslate"><span class="pre">telemetry.create_histogram(&quot;llm.request.duration&quot;,</span> <span class="pre">...)</span></code>). These
+instruments are now ready to record measurements.</p></li>
+</ul>
+</section>
+<section id="runtime-instrumentation-apis">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">3.2. Runtime Instrumentation APIs</a><a class="headerlink" href="#runtime-instrumentation-apis" title="Link to this heading">#</a></h3>
+<p>During application execution (e.g., handling an HTTP request), the SDK APIs are
+used to generate telemetry:</p>
+<ul class="simple">
+<li><p><strong>Traces (<code class="docutils literal notranslate"><span class="pre">telemetry.tracer</span></code>):</strong></p>
+<ul>
+<li><p><strong>Span Creation:</strong>
+<code class="docutils literal notranslate"><span class="pre">telemetry.start_as_current_span(&quot;operation_name&quot;,</span> <span class="pre">...)</span></code> is the primary
+method. It starts a new <code class="docutils literal notranslate"><span class="pre">Span</span></code>, makes it active in the current execution
+context, and returns a context manager (for use with <code class="docutils literal notranslate"><span class="pre">with</span></code>). When the
+<code class="docutils literal notranslate"><span class="pre">with</span></code> block exits, the span is automatically ended.</p></li>
+<li><p><strong>Automatic Instrumentation:</strong> If auto-instrumentation libraries (e.g.,
+<code class="docutils literal notranslate"><span class="pre">opentelemetry-instrumentation-fastapi</span></code>,
+<code class="docutils literal notranslate"><span class="pre">opentelemetry-instrumentation-httpx</span></code>) are active, they automatically
+create spans for supported operations (incoming requests, outgoing HTTP
+calls, DB queries) without manual code.</p></li>
+<li><p><strong>Span Attributes &amp; Events:</strong> Inside a span’s context, you can add
+attributes (<code class="docutils literal notranslate"><span class="pre">span.set_attribute(&quot;key&quot;,</span> <span class="pre">&quot;value&quot;)</span></code>), record events
+(<code class="docutils literal notranslate"><span class="pre">span.add_event(&quot;message&quot;)</span></code>), and record exceptions
+(<code class="docutils literal notranslate"><span class="pre">span.record_exception(exc)</span></code>). The span’s status (OK/Error) is
+typically set automatically based on whether an exception occurred.</p></li>
+</ul>
+</li>
+<li><p><strong>Metrics (<code class="docutils literal notranslate"><span class="pre">telemetry.meter</span></code>):</strong></p>
+<ul>
+<li><p><strong>Recording Measurements:</strong> The previously created instruments are used
+to record values:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">counter.add(1,</span> <span class="pre">{&quot;attr&quot;:</span> <span class="pre">&quot;value&quot;})</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">histogram.record(duration,</span> <span class="pre">{&quot;attr&quot;:</span> <span class="pre">&quot;value&quot;})</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">up_down_counter.add(1</span> <span class="pre">/</span> <span class="pre">-1,</span> <span class="pre">{&quot;attr&quot;:</span> <span class="pre">&quot;value&quot;})</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gauge.set(value,</span> <span class="pre">{&quot;attr&quot;:</span> <span class="pre">&quot;value&quot;})</span></code> (via observable callbacks)</p></li>
+</ul>
+</li>
+<li><p>Attributes (key-value pairs) provide dimensions for filtering and
+aggregation in the backend.</p></li>
+</ul>
+</li>
+<li><p><strong>Logs (<code class="docutils literal notranslate"><span class="pre">telemetry.log</span></code> or standard <code class="docutils literal notranslate"><span class="pre">logging</span></code>):</strong></p>
+<ul>
+<li><p>Using the facade
+<code class="docutils literal notranslate"><span class="pre">telemetry.log(level=logging.INFO,</span> <span class="pre">message=&quot;...&quot;,</span> <span class="pre">extra_attributes={})</span></code>
+or standard <code class="docutils literal notranslate"><span class="pre">logging.info(&quot;...&quot;)</span></code> calls generates log records.</p></li>
+<li><p>The OTel logging handler automatically captures these, attaches the
+current <code class="docutils literal notranslate"><span class="pre">TraceId</span></code>, <code class="docutils literal notranslate"><span class="pre">SpanId</span></code>, and <code class="docutils literal notranslate"><span class="pre">Resource</span></code> attributes, and forwards
+them to the configured <code class="docutils literal notranslate"><span class="pre">LogRecordProcessor</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="context-propagation">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">3.3. Context Propagation</a><a class="headerlink" href="#context-propagation" title="Link to this heading">#</a></h3>
+<p>A key aspect of distributed tracing is maintaining causality across process
+boundaries (e.g., one service calling another).</p>
+<ul class="simple">
+<li><p><strong>Injection:</strong> When making an outgoing request (e.g., an HTTP call via
+<code class="docutils literal notranslate"><span class="pre">httpx</span></code>), the application uses <code class="docutils literal notranslate"><span class="pre">telemetry.inject_context(carrier)</span></code> (where
+<code class="docutils literal notranslate"><span class="pre">carrier</span></code> is often a dictionary for HTTP headers). The SDK injects the
+current active trace context (Trace ID, Span ID, trace flags, trace state)
+into the carrier using a standard format (usually W3C Trace Context
+<code class="docutils literal notranslate"><span class="pre">traceparent</span></code> and <code class="docutils literal notranslate"><span class="pre">tracestate</span></code> headers).</p></li>
+<li><p><strong>Extraction:</strong> On the receiving side (e.g., in middleware like
+<code class="docutils literal notranslate"><span class="pre">TraceContextMiddleware</span></code>), the application uses
+<code class="docutils literal notranslate"><span class="pre">telemetry.extract_context(carrier)</span></code> to retrieve trace context from the
+incoming request headers.</p></li>
+<li><p><strong>Continuity:</strong> If context is successfully extracted, new spans created by
+the receiving service become children of the span from the calling service,
+preserving the distributed trace chain. If no context is found, a new trace
+is started.</p></li>
+</ul>
+</section>
+<section id="sdk-internal-processing-and-export">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">3.4. SDK Internal Processing and Export</a><a class="headerlink" href="#sdk-internal-processing-and-export" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Batching:</strong> As described in Initialization, the <code class="docutils literal notranslate"><span class="pre">BatchSpanProcessor</span></code> and
+<code class="docutils literal notranslate"><span class="pre">BatchLogRecordProcessor</span></code> collect completed spans and log records. They
+buffer these items in memory until either a configured time interval elapses
+(e.g., 5 seconds) or a maximum batch size is reached (e.g., 512 items).</p></li>
+<li><p><strong>Metric Aggregation:</strong> The <code class="docutils literal notranslate"><span class="pre">PeriodicExportingMetricReader</span></code> wakes up at its
+configured interval (e.g., 30s), collects the latest aggregated values from
+all metric instruments (e.g., sum for counters, histogram buckets), and
+resets state where necessary (for delta temporality).</p></li>
+<li><p><strong>Serialization &amp; Export:</strong> When a batch is ready (for spans/logs) or the
+metric collection interval triggers, the corresponding OTLP exporter:</p>
+<ol class="arabic simple">
+<li><p>Serializes the batch of telemetry items into the OTLP Protobuf format.</p></li>
+<li><p>Establishes a network connection (gRPC or HTTP) to the configured OTel
+Collector endpoint (<code class="docutils literal notranslate"><span class="pre">OTEL_EXPORTER_OTLP_ENDPOINT</span></code>).</p></li>
+<li><p>Sends the serialized OTLP message over the network.</p></li>
+<li><p>Handles potential connection errors or backpressure signals from the
+Collector (exporters often have basic retry mechanisms).</p></li>
+</ol>
+</li>
+</ul>
+<p>This marks the end of the application’s direct involvement for that batch of
+telemetry. The responsibility shifts to the OTel Collector.</p>
+</section>
+</section>
+<section id="phase-2-data-reception-processing-otel-collector">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">4. Phase 2: Data Reception &amp; Processing (OTel Collector)</a><a class="headerlink" href="#phase-2-data-reception-processing-otel-collector" title="Link to this heading">#</a></h2>
+<p>The OTel Collector acts as a dedicated, standalone service optimized for
+handling telemetry data efficiently and reliably.</p>
+<section id="otlp-receiver">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">4.1. OTLP Receiver</a><a class="headerlink" href="#otlp-receiver" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Listening:</strong> The Collector is configured with an <code class="docutils literal notranslate"><span class="pre">otlp</span></code> receiver in
+<code class="docutils literal notranslate"><span class="pre">collector-config.yaml</span></code>. This receiver binds to specific network interfaces
+and ports (e.g., <code class="docutils literal notranslate"><span class="pre">0.0.0.0:4317</span></code> for gRPC, <code class="docutils literal notranslate"><span class="pre">0.0.0.0:4318</span></code> for HTTP) and
+listens for incoming connections from application SDKs.</p></li>
+<li><p><strong>Protocol Handling:</strong> It accepts connections using the specified protocols
+(gRPC and/or HTTP).</p></li>
+<li><p><strong>Deserialization:</strong> Upon receiving an OTLP message, the receiver parses the
+Protobuf payload.</p></li>
+<li><p><strong>Identification &amp; Routing:</strong> It identifies the signal type (traces,
+metrics, logs) based on the OTLP message structure and converts the data
+into the Collector’s internal data model. It then routes this internal data
+to the beginning of the appropriate pipeline(s) defined in the
+<code class="docutils literal notranslate"><span class="pre">service.pipelines</span></code> section of the configuration.</p></li>
+</ul>
+</section>
+<section id="pipeline-processing">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">4.2. Pipeline Processing</a><a class="headerlink" href="#pipeline-processing" title="Link to this heading">#</a></h3>
+<p>Data flows sequentially through the processors configured for its specific
+pipeline (e.g., <code class="docutils literal notranslate"><span class="pre">service.pipelines.traces.processors</span></code>). The order of processors
+matters. A typical robust pipeline includes:</p>
+<ol class="arabic simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">memory_limiter</span></code> Processor:</strong></p>
+<ul class="simple">
+<li><p><strong>Purpose:</strong> Acts as a crucial safety mechanism to prevent the Collector
+from crashing due to excessive memory usage, especially under high load
+or if downstream exporters are slow/unavailable.</p></li>
+<li><p><strong>Mechanism:</strong> Monitors the Collector’s memory footprint. If usage
+exceeds a configured <code class="docutils literal notranslate"><span class="pre">limit_mib</span></code>, it starts rejecting new data
+(<code class="docutils literal notranslate"><span class="pre">ballast_size_mib</span></code> can influence Go GC behavior). If usage hits a
+<code class="docutils literal notranslate"><span class="pre">spike_limit_mib</span></code>, it triggers garbage collection more aggressively and
+continues rejecting data. This rejection signals backpressure to the
+receiver, which ideally propagates to the SDK (causing retries or data
+dropping at the source).</p></li>
+<li><p><strong>Placement:</strong> Typically placed <strong>first</strong> in the pipeline to check
+memory before any significant processing occurs.</p></li>
+</ul>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">batch</span></code> Processor:</strong></p>
+<ul class="simple">
+<li><p><strong>Purpose:</strong> Improves export efficiency and reduces load on backend
+systems by grouping telemetry items received by the Collector into
+larger batches.</p></li>
+<li><p><strong>Mechanism:</strong> Similar to the SDK batch processors, it collects items
+based on time (<code class="docutils literal notranslate"><span class="pre">timeout</span></code>) or count (<code class="docutils literal notranslate"><span class="pre">send_batch_size</span></code>) before flushing
+the batch to the next processor or exporter. This amortizes the overhead
+of export calls.</p></li>
+<li><p><strong>Placement:</strong> Often placed after the <code class="docutils literal notranslate"><span class="pre">memory_limiter</span></code>.</p></li>
+</ul>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">resource</span></code> Processor:</strong></p>
+<ul class="simple">
+<li><p><strong>Purpose:</strong> Ensures consistent metadata by adding, modifying, or
+removing resource attributes attached to telemetry data.</p></li>
+<li><p><strong>Mechanism:</strong> Configured with actions (<code class="docutils literal notranslate"><span class="pre">upsert</span></code>, <code class="docutils literal notranslate"><span class="pre">insert</span></code>, <code class="docutils literal notranslate"><span class="pre">update</span></code>,
+<code class="docutils literal notranslate"><span class="pre">delete</span></code>) for specific attributes (e.g., ensuring <code class="docutils literal notranslate"><span class="pre">service.name</span></code> or
+<code class="docutils literal notranslate"><span class="pre">deployment.environment</span></code> is present and correct, potentially adding k8s
+attributes like <code class="docutils literal notranslate"><span class="pre">k8s.pod.name</span></code>).</p></li>
+<li><p><strong>Placement:</strong> Often placed after batching, before exporting, to ensure
+all data sent to backends has the desired, consistent resource
+information.</p></li>
+</ul>
+</li>
+</ol>
+<p><em>(Other processors like <code class="docutils literal notranslate"><span class="pre">attributes</span></code>, <code class="docutils literal notranslate"><span class="pre">span</span></code>, <code class="docutils literal notranslate"><span class="pre">filter</span></code>, <code class="docutils literal notranslate"><span class="pre">probabilistic_sampler</span></code>
+can be added for more advanced filtering, modification, or sampling
+requirements.)</em></p>
+</section>
+</section>
+<section id="phase-3-data-exporting-collector-to-backends">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">5. Phase 3: Data Exporting (Collector to Backends)</a><a class="headerlink" href="#phase-3-data-exporting-collector-to-backends" title="Link to this heading">#</a></h2>
+<p>After passing through all processors in its pipeline, the (now processed and
+batched) telemetry data reaches the exporter(s) configured for that pipeline
+(<code class="docutils literal notranslate"><span class="pre">service.pipelines.&lt;signal&gt;.exporters</span></code>).</p>
+<ul class="simple">
+<li><p><strong>Fan-Out:</strong> A single pipeline can have multiple exporters. The Collector
+fans out the data, sending a copy to each configured exporter for that
+signal type.</p></li>
+</ul>
+<section id="trace-exporters">
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">5.1. Trace Exporters</a><a class="headerlink" href="#trace-exporters" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">otlp</span></code> Exporter (to Jaeger):</strong></p>
+<ul>
+<li><p><strong>Mechanism:</strong> Configured with the OTLP endpoint of the Jaeger collector
+(e.g., <code class="docutils literal notranslate"><span class="pre">endpoint:</span> <span class="pre">jaeger:4317</span></code>). It serializes trace batches into OTLP
+and <strong>pushes</strong> them via gRPC (usually) to Jaeger. Modern Jaeger versions
+natively support OTLP ingestion.</p></li>
+<li><p><strong>Reliability:</strong> Includes built-in retry logic with exponential backoff
+to handle temporary network issues or Jaeger unavailability.</p></li>
+</ul>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">debug</span></code> Exporter:</strong></p>
+<ul>
+<li><p><strong>Mechanism:</strong> Logs the received trace data (spans) to the Collector’s
+standard output/error stream. Verbosity can be configured (<code class="docutils literal notranslate"><span class="pre">detailed</span></code>).</p></li>
+<li><p><strong>Purpose:</strong> Primarily for debugging and verifying data flow during
+development or troubleshooting. It confirms that traces reached the
+Collector and passed through the pipeline, even if the primary backend
+exporter fails.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="metric-exporters">
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">5.2. Metric Exporters</a><a class="headerlink" href="#metric-exporters" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">prometheus</span></code> Exporter:</strong></p>
+<ul>
+<li><p><strong>Mechanism:</strong> Does <strong>not</strong> push data. Instead, it acts as a <strong>pull</strong>
+endpoint. It maintains the current state of received metrics internally
+and exposes an HTTP endpoint (e.g., <code class="docutils literal notranslate"><span class="pre">endpoint:</span> <span class="pre">0.0.0.0:8889</span></code>). A
+separate Prometheus server must be configured to periodically scrape
+(<code class="docutils literal notranslate"><span class="pre">/metrics</span></code>) this endpoint. On scrape, the exporter formats the current
+metrics into the Prometheus text exposition format and returns them in
+the HTTP response.</p></li>
+<li><p><strong>Configuration:</strong> Options like <code class="docutils literal notranslate"><span class="pre">namespace</span></code>, <code class="docutils literal notranslate"><span class="pre">send_timestamps</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">resource_to_telemetry_conversion</span></code> control the formatting and labeling
+of exposed metrics.</p></li>
+</ul>
+</li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">debug</span></code> Exporter:</strong></p>
+<ul>
+<li><p><strong>Mechanism:</strong> Logs the received metric data points to the Collector’s
+console. Useful for verifying that metrics are arriving and being
+processed correctly.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="log-exporters">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">5.3. Log Exporters</a><a class="headerlink" href="#log-exporters" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">debug</span></code> Exporter:</strong></p>
+<ul>
+<li><p><strong>Mechanism:</strong> In the provided example configuration, this is often the
+only exporter for logs. It prints the log records (including attributes
+and trace context) to the Collector’s console.</p></li>
+<li><p><strong>(Alternative):</strong> In a production setup, you would typically add other
+exporters here, such as <code class="docutils literal notranslate"><span class="pre">loki</span></code>, <code class="docutils literal notranslate"><span class="pre">otlp</span></code> (to a log-compatible OTLP backend
+like Grafana Loki with its OTLP receiver), or <code class="docutils literal notranslate"><span class="pre">file</span></code> to send logs to
+persistent storage and analysis systems.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="phase-4-backend-storage-visualization">
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">6. Phase 4: Backend Storage &amp; Visualization</a><a class="headerlink" href="#phase-4-backend-storage-visualization" title="Link to this heading">#</a></h2>
+<p>The final destinations where telemetry data is stored, analyzed, and visualized.</p>
+<ul class="simple">
+<li><p><strong>Jaeger:</strong> Receives OTLP trace data from the Collector. Stores spans
+(in-memory for development, or backend databases like
+Elasticsearch/Cassandra for production). Provides a UI (e.g., port 16686)
+for searching, visualizing distributed traces, analyzing latency, and
+understanding service dependencies.</p></li>
+<li><p><strong>Prometheus:</strong> Periodically scrapes the Collector’s Prometheus exporter
+endpoint. Stores the received metrics in its time-series database. Provides
+a UI (e.g., port 9090) for querying metrics using PromQL and basic graphing.
+Often used as a data source for Grafana for richer dashboards.</p></li>
+<li><p><strong>Collector Logs (via Debug Exporter):</strong> Telemetry logged by the <code class="docutils literal notranslate"><span class="pre">debug</span></code>
+exporter is visible in the standard output/logs of the <code class="docutils literal notranslate"><span class="pre">otel-collector</span></code>
+service (e.g., via <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">logs</span> <span class="pre">otel-collector</span></code>). This is not persistent
+storage but useful for immediate feedback during development.</p></li>
+</ul>
+</section>
+<section id="phase-5-reliability-monitoring-extensions">
+<h2><a class="toc-backref" href="#id16" role="doc-backlink">7. Phase 5: Reliability, Monitoring &amp; Extensions</a><a class="headerlink" href="#phase-5-reliability-monitoring-extensions" title="Link to this heading">#</a></h2>
+<p>Several features contribute to the robustness and maintainability of this setup:</p>
+<ul class="simple">
+<li><p><strong>Batching (SDK &amp; Collector):</strong> Reduces network overhead, improves
+throughput, allows buffering during transient backend issues.</p></li>
+<li><p><strong>Memory Limiter (Collector):</strong> Prevents Collector OOM crashes under heavy
+load through controlled data dropping and backpressure.</p></li>
+<li><p><strong>Exporter Retries:</strong> OTLP exporters automatically retry sending data on
+transient failures, preventing data loss.</p></li>
+<li><p><strong>Backpressure:</strong> The system (ideally) propagates backpressure from
+overloaded components (Collector memory limiter, exporter queues) back to
+the source (SDK), potentially causing the SDK to slow down or drop data
+gracefully.</p></li>
+<li><p><strong>Collector Extensions:</strong></p>
+<ul>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">health_check</span></code>:</strong> Exposes an HTTP endpoint (e.g., port 13133) for
+external monitoring systems (like Kubernetes liveness/readiness probes)
+to verify the Collector process is running and responsive. Essential for
+automated operations.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">pprof</span></code>:</strong> Enables Go’s built-in performance profiling endpoint (e.g.,
+port 1777). Allows developers to diagnose CPU and memory usage
+bottlenecks within the Collector itself.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">zpages</span></code>:</strong> Provides web-based diagnostic pages (e.g., port 55679)
+showing internal Collector state, including pipeline statistics, trace
+information, and configuration details. Useful for live debugging.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="detailed-walkthrough-tracing-a-request">
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">8. Detailed Walkthrough: Tracing a Request</a><a class="headerlink" href="#detailed-walkthrough-tracing-a-request" title="Link to this heading">#</a></h2>
+<p>Let’s trace a hypothetical request to the <code class="docutils literal notranslate"><span class="pre">/chat</span></code> endpoint in <code class="docutils literal notranslate"><span class="pre">llm_app.py</span></code>
+through the system:</p>
+<ol class="arabic simple">
+<li><p><strong>Request In (App):</strong> A POST request hits <code class="docutils literal notranslate"><span class="pre">/chat</span></code>.</p></li>
+<li><p><strong>Middleware Span (App):</strong> <code class="docutils literal notranslate"><span class="pre">TraceContextMiddleware</span></code> extracts any incoming
+<code class="docutils literal notranslate"><span class="pre">traceparent</span></code> header (or starts a new trace). It uses
+<code class="docutils literal notranslate"><span class="pre">telemetry.start_as_current_span(&quot;POST</span> <span class="pre">/chat&quot;)</span></code> to create <code class="docutils literal notranslate"><span class="pre">Span</span> <span class="pre">1</span> <span class="pre">(SERVER)</span></code>.</p></li>
+<li><p><strong>Route Handler Span (App):</strong> Inside the <code class="docutils literal notranslate"><span class="pre">/chat</span></code> function,
+<code class="docutils literal notranslate"><span class="pre">telemetry.start_as_current_span(&quot;chat_operation&quot;)</span></code> creates
+<code class="docutils literal notranslate"><span class="pre">Span</span> <span class="pre">2</span> <span class="pre">(INTERNAL)</span></code>, a child of Span 1.</p></li>
+<li><p><strong>Metric Recording (App):</strong> A counter like <code class="docutils literal notranslate"><span class="pre">chat_requests_total.add(1)</span></code>
+might be called.</p></li>
+<li><p><strong>Logging (App):</strong> <code class="docutils literal notranslate"><span class="pre">telemetry.log(logging.INFO,</span> <span class="pre">&quot;Processing</span> <span class="pre">chat</span> <span class="pre">request&quot;)</span></code>
+creates a log record, automatically associating it with Span 2.</p></li>
+<li><p><strong>Internal Call Span (App):</strong> The code calls <code class="docutils literal notranslate"><span class="pre">simulate_llm_api_call()</span></code>.
+Inside this function, <code class="docutils literal notranslate"><span class="pre">telemetry.start_as_current_span(&quot;llm.simulate_call&quot;)</span></code>
+creates <code class="docutils literal notranslate"><span class="pre">Span</span> <span class="pre">3</span> <span class="pre">(CLIENT</span> <span class="pre">or</span> <span class="pre">INTERNAL)</span></code>, a child of Span 2. Metrics related to
+the simulation (duration, tokens) are recorded within this span’s context.</p></li>
+<li><p><strong>Span Completion (App):</strong> As <code class="docutils literal notranslate"><span class="pre">with</span></code> blocks exit and functions return, Spans
+3, 2, and 1 are ended sequentially. Their durations are calculated, statuses
+set, and any exceptions recorded.</p></li>
+<li><p><strong>SDK Batching &amp; Export (App):</strong> The completed spans (1, 2, 3), the log
+record, and collected metrics are processed by their respective SDK
+batchers/readers. Eventually, OTLP exporters send batches containing this
+telemetry to the Collector (e.g., <code class="docutils literal notranslate"><span class="pre">otel-collector:4317</span></code>).</p></li>
+<li><p><strong>Collector Reception:</strong> The Collector’s <code class="docutils literal notranslate"><span class="pre">otlp</span></code> receiver gets the OTLP
+messages.</p></li>
+<li><p><strong>Collector Processing:</strong> The spans, metrics, and logs are routed to their
+pipelines. They pass through <code class="docutils literal notranslate"><span class="pre">memory_limiter</span></code>, <code class="docutils literal notranslate"><span class="pre">batch</span></code>, and <code class="docutils literal notranslate"><span class="pre">resource</span></code>
+processors.</p></li>
+<li><p><strong>Collector Export (Traces):</strong> The trace batch (containing Spans 1, 2, 3) is
+sent to the <code class="docutils literal notranslate"><span class="pre">otlp</span></code> (to Jaeger) exporter AND the <code class="docutils literal notranslate"><span class="pre">debug</span></code> exporter.</p></li>
+<li><p><strong>Collector Export (Metrics):</strong> The metric batch is processed by the
+<code class="docutils literal notranslate"><span class="pre">prometheus</span></code> exporter (updating its internal state) AND the <code class="docutils literal notranslate"><span class="pre">debug</span></code>
+exporter.</p></li>
+<li><p><strong>Collector Export (Logs):</strong> The log batch is sent to the <code class="docutils literal notranslate"><span class="pre">debug</span></code> exporter.</p></li>
+<li><p><strong>Backend Storage (Jaeger):</strong> The <code class="docutils literal notranslate"><span class="pre">otlp</span></code> exporter successfully sends the
+trace batch to Jaeger, which stores the spans.</p></li>
+<li><p><strong>Backend Storage (Prometheus):</strong> The next time Prometheus scrapes the
+Collector’s <code class="docutils literal notranslate"><span class="pre">/metrics</span></code> endpoint, it retrieves the latest metric values,
+including the incremented <code class="docutils literal notranslate"><span class="pre">chat_requests_total</span></code>.</p></li>
+<li><p><strong>Backend Storage (Logs):</strong> The log record appears in the <code class="docutils literal notranslate"><span class="pre">otel-collector</span></code>
+container’s console output.</p></li>
+<li><p><strong>Visualization:</strong> A developer can now query Jaeger to find the trace for
+the <code class="docutils literal notranslate"><span class="pre">/chat</span></code> request, view the relationship between Spans 1, 2, and 3, see
+their durations and attributes, and find the correlated log message. They
+can query Prometheus/Grafana to see the <code class="docutils literal notranslate"><span class="pre">chat_requests_total</span></code> metric over
+time.</p></li>
+</ol>
+<p>This detailed flow illustrates how telemetry provides end-to-end visibility,
+correlating different signals (traces, metrics, logs) across the application and
+infrastructure components.</p>
+</section>
+<section id="best-practices-troubleshooting">
+<h2><a class="toc-backref" href="#id18" role="doc-backlink">9. Best Practices &amp; Troubleshooting</a><a class="headerlink" href="#best-practices-troubleshooting" title="Link to this heading">#</a></h2>
+<p><em>(This section summarizes key points from <code class="docutils literal notranslate"><span class="pre">concept.md</span></code>’s “Best Practices”
+section for quick reference)</em></p>
+<ul class="simple">
+<li><p><strong>Configuration Alignment:</strong> Ensure <code class="docutils literal notranslate"><span class="pre">OTEL_EXPORTER_OTLP_ENDPOINT</span></code> and
+<code class="docutils literal notranslate"><span class="pre">OTEL_EXPORTER_OTLP_PROTOCOL</span></code> in the application SDK match the Collector’s
+<code class="docutils literal notranslate"><span class="pre">otlp</span></code> receiver settings (ports 4317/gRPC vs 4318/HTTP). Mismatches are a
+common cause of “no data”.</p></li>
+<li><p><strong>Service Name:</strong> Always set the <code class="docutils literal notranslate"><span class="pre">service.name</span></code> resource attribute (via SDK
+config <code class="docutils literal notranslate"><span class="pre">OTEL_SERVICE_NAME</span></code> or Collector <code class="docutils literal notranslate"><span class="pre">resource</span></code> processor) for meaningful
+grouping in backends.</p></li>
+<li><p><strong>Collector Processors:</strong> Use <code class="docutils literal notranslate"><span class="pre">batch</span></code> and <code class="docutils literal notranslate"><span class="pre">memory_limiter</span></code> in production
+Collector pipelines for performance and stability.</p></li>
+<li><p><strong>Prometheus Scrapes:</strong> Remember Prometheus <em>pulls</em> data. Ensure the
+Prometheus server is configured to scrape the Collector’s <code class="docutils literal notranslate"><span class="pre">prometheus</span></code>
+exporter endpoint, and that the endpoint is network-accessible.</p></li>
+<li><p><strong>Debug Exporter:</strong> Use the <code class="docutils literal notranslate"><span class="pre">debug</span></code> exporter in the Collector during
+development/troubleshooting to verify data arrival and format <em>before</em> it
+reaches backends.</p></li>
+<li><p><strong>Check Logs:</strong> Examine both application logs and Collector logs for errors
+(connection issues, configuration problems).</p></li>
+<li><p><strong>Collector Extensions:</strong> Leverage <code class="docutils literal notranslate"><span class="pre">health_check</span></code> for monitoring, and
+<code class="docutils literal notranslate"><span class="pre">pprof</span></code>/<code class="docutils literal notranslate"><span class="pre">zpages</span></code> for advanced Collector debugging/profiling.</p></li>
+<li><p><strong>Jaeger OTLP:</strong> Ensure the target Jaeger instance has OTLP ingestion
+enabled (<code class="docutils literal notranslate"><span class="pre">COLLECTOR_OTLP_ENABLED=true</span></code> for Jaeger all-in-one).</p></li>
+</ul>
+<p>By understanding this flow and adhering to best practices, you can effectively
+leverage OpenTelemetry for robust observability in this project.</p>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="concept.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Concept</p>
+      </div>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#introduction">1. Introduction</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#high-level-flow-diagram">2. High-Level Flow Diagram</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-1-telemetry-generation-application-sdk">3. Phase 1: Telemetry Generation (Application SDK)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#initialization-and-configuration">3.1. Initialization and Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#runtime-instrumentation-apis">3.2. Runtime Instrumentation APIs</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#context-propagation">3.3. Context Propagation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#sdk-internal-processing-and-export">3.4. SDK Internal Processing and Export</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-2-data-reception-processing-otel-collector">4. Phase 2: Data Reception &amp; Processing (OTel Collector)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#otlp-receiver">4.1. OTLP Receiver</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pipeline-processing">4.2. Pipeline Processing</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-3-data-exporting-collector-to-backends">5. Phase 3: Data Exporting (Collector to Backends)</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#trace-exporters">5.1. Trace Exporters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#metric-exporters">5.2. Metric Exporters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#log-exporters">5.3. Log Exporters</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-4-backend-storage-visualization">6. Phase 4: Backend Storage &amp; Visualization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#phase-5-reliability-monitoring-extensions">7. Phase 5: Reliability, Monitoring &amp; Extensions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#detailed-walkthrough-tracing-a-request">8. Detailed Walkthrough: Tracing a Request</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#best-practices-troubleshooting">9. Best Practices &amp; Troubleshooting</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Hongnan Gao
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2025.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=3ee479438cf8b5e0d341"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=3ee479438cf8b5e0d341"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
