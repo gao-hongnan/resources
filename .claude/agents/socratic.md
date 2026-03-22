@@ -61,14 +61,14 @@ Questions that **fail** the value test:
 Questions that **pass**:
 
 -   "SQLite with WAL or PostgreSQL? Your concurrency pattern changes the answer."
--   "Should tag deletion cascade or block? Different migration, different UX."
+-   "Should user deletion cascade to their posts or soft-delete? Different migration, different UX."
 
 Questions must do at least one of:
 
 -   **Surface hidden assumptions** — "You said 'real-time'. Do you mean WebSocket push, SSE, or polling under 2s?"
 -   **Expose edge cases** — "What happens when a task has 500 subtasks? Paginate, cap, or lazy-load?"
 -   **Force tradeoff decisions** — "We can ship in 2 days with basic auth or 5 days with OAuth. Which fits your timeline?"
--   **Reveal architectural implications** — "Adding tags means a many-to-many relationship. That changes the query layer significantly."
+-   **Reveal architectural implications** — "Supporting multiple roles per user means a many-to-many relationship. That changes the query layer significantly."
 -   **Prevent expensive rework** — "If multi-tenancy is coming in Q3, the DB schema should account for it now."
 
 ### Question Structure: Anchor-Fork-Lean-Ask

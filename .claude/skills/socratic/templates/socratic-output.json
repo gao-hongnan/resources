@@ -1,0 +1,43 @@
+{
+  "topic": "",
+  "date": "",
+  "questions_asked": 0,
+  "tradeoffs_surfaced": 0,
+  "problem_understanding": "",
+  "homework_findings": {
+    "current_behavior": "",
+    "relevant_architecture": "",
+    "key_files": [
+      { "file": "", "relevance": "" }
+    ]
+  },
+  "decisions": [
+    {
+      "title": "",
+      "choice": "",
+      "context": "",
+      "alternatives_considered": "",
+      "implication": ""
+    }
+  ],
+  "tradeoffs_resolved": [
+    { "tradeoff": "", "choice": "", "reasoning": "" }
+  ],
+  "deferred_items": [],
+  "scope_boundaries": {
+    "in_scope": [],
+    "out_of_scope": []
+  },
+  "success_criteria": [],
+  "constraints": [],
+  "interview_transcript": [
+    {
+      "number": 1,
+      "phase": "",
+      "anchor": "",
+      "fork": "",
+      "lean": "",
+      "user_decision": ""
+    }
+  ]
+}

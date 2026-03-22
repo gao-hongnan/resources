@@ -1,0 +1,123 @@
+# Spec Skill -- Centralized Defaults
+#
+# All tunable parameters for the /spec skill in one place.
+# Consumer repos can override any value via specs/.specrc.yaml
+# in the repo root. Values here are the system defaults.
+#
+# Precedence: .specrc.yaml > defaults.yaml
+
+# --- Clarification (aporia) ---
+clarification:
+  max_markers: 3              # Max [NEEDS CLARIFICATION] markers before guessing
+  max_questions_per_session: 5 # Max clarify questions per /spec aporia run
+  priority_order:             # Question priority when triaging ambiguities
+    - scope
+    - security
+    - ux
+    - technical
+
+# --- Interview (Pre-Spec Socratic Discovery) ---
+interview:
+  max_questions: 8            # Max questions during /spec socratic
+  min_questions: 3            # Minimum questions before allowing early stop
+  allow_skip: true            # User can say "skip" to accept exploration-derived defaults
+  allow_early_stop: true      # User can say "done" to stop early (after min_questions)
+  priority_order:             # Question priority when exploring requirements
+    - scope
+    - success
+    - failure
+    - constraints
+
+# --- Quality ---
+quality:
+  min_functional_requirements: 2
+  min_acceptance_criteria: 2  # Given/When/Then format required
+  min_success_criteria: 2     # Must contain at least one number each
+  min_edge_cases: 2           # Must reference an AC-NNN
+  min_glossary_terms: 3       # Threshold for including Glossary section
+
+# --- Tasks (praxis) ---
+tasks:
+  max_files_per_pr: 3         # >N files = split the task
+  max_services_per_task: 1    # Exception: shared lib + consumer
+  slug_min_words: 3
+  slug_max_words: 5
+  task_id_pattern: "{TICKET}-{WORKSTREAM}{SEQ}" # e.g., FROSTY-147-1A
+
+# --- Synthesis (cross-cutting diagrams) + Inline Diagrams ---
+synthesis:
+  min_inline_sequence_diagrams: 1  # Required in plan.md per-decision inline diagrams
+  cross_cutting_types:
+    - data_flow
+    - component
+    - state
+  mermaid_only: true
+  require_fr_mapping: true
+  id_patterns:
+    sequence: "SEQ"
+    data_flow: "DFD"
+    component: "CMP"
+    state: "STD"
+
+# --- Naming ---
+naming:
+  ticket_pattern: "[A-Z]+-\\d+"          # Jira ticket format
+  draft_pattern: "DRAFT-\\d{4}"          # Draft ticket format
+  slug_pattern: "[a-z0-9]+(-[a-z0-9]+)*" # Slug format (3-5 segments)
+
+# --- Analysis ---
+analysis:
+  vague_adjectives:           # Terms flagged in Pass 3 (Ambiguity)
+    - fast
+    - slow
+    - quickly
+    - scalable
+    - robust
+    - intuitive
+    - efficient
+    - performant
+    - significant
+    - substantial
+    - reasonable
+    - adequate
+    - appropriate
+    - minimal
+    - lightweight
+    - heavy
+    - large
+    - small
+    - many
+    - few
+    - several
+    - various
+    - numerous
+  vague_context_window: 20    # Characters after term to look for a metric
+
+# --- Citations ---
+citations:
+  enabled: true               # Master toggle; repos override via .specrc.yaml
+  unverified_marker: "[UNVERIFIED]"
+
+# --- Conformance ---
+conformance:
+  default_target_tier: L3     # Minimum tier for /spec analyze to report "Ready"
+  tiers:
+    L1: "Minimum Viable"
+    L2: "Plan-Ready"
+    L3: "Implementation-Ready"
+    L4: "Autonomous-Ready"
+
+# --- Export ---
+export:
+  output_filename: features.json
+  import_source: progress.json
+
+# --- Logging ---
+logging:
+  history_file: history.json  # Per-spec event log
+  log_events: true            # Append events on every sub-command
+
+# --- Workspace Safety ---
+workspace:
+  path_prefix: "specs/"       # All writes must target inside this prefix
+  require_ticket_format: true # Enforce ticket pattern validation

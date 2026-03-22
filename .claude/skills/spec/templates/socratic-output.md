@@ -1,6 +1,12 @@
-# Interview Notes: $1
+---
+ticket: $1
+date: !`date +%Y-%m-%d`
+interviewer: "/spec socratic"
+questions_asked: { N }
+tradeoffs_surfaced: { N }
+---
 
-**Date**: !`date +%Y-%m-%d` | **Questions asked**: { N } | **Tradeoffs surfaced**: { N }
+# Interview Notes: $1
 
 ## Problem Understanding
 
